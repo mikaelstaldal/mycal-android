@@ -31,7 +31,7 @@ The debug APK is output to `app/build/outputs/apk/debug/app-debug.apk`.
 ## Setup
 
 1. Install the APK on a device or emulator
-2. On first launch, you'll be prompted to configure the server
+2. On the first launch, you'll be prompted to configure the server
 3. Enter the MyCal server URL (e.g. `http://192.168.1.100:8080`), username, and password
 4. Use "Test Connection" to verify connectivity before saving
 
