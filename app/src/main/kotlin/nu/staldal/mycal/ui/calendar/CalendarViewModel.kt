@@ -14,7 +14,10 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
+enum class ViewMode { SCHEDULE, MONTH }
+
 data class CalendarUiState(
+    val viewMode: ViewMode = ViewMode.SCHEDULE,
     val currentMonth: YearMonth = YearMonth.now(),
     val selectedDate: LocalDate = LocalDate.now(),
     val events: List<EventDto> = emptyList(),
@@ -25,6 +28,10 @@ data class CalendarUiState(
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val searchResults: List<EventDto> = emptyList(),
+    val scheduleEvents: List<EventDto> = emptyList(),
+    val scheduleStartMonth: YearMonth = YearMonth.now(),
+    val scheduleEndMonth: YearMonth = YearMonth.now(),
+    val isLoadingMore: Boolean = false,
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,6 +48,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(isConfigured = config.isConfigured) }
                 if (config.isConfigured) {
                     loadEvents()
+                    loadScheduleEvents()
                 }
             }
         }
@@ -68,8 +76,86 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun toggleViewMode() {
+        _uiState.update {
+            it.copy(
+                viewMode = if (it.viewMode == ViewMode.SCHEDULE) ViewMode.MONTH else ViewMode.SCHEDULE,
+            )
+        }
+    }
+
     fun refresh() {
-        loadEvents()
+        if (_uiState.value.viewMode == ViewMode.SCHEDULE) {
+            loadScheduleEvents()
+        } else {
+            loadEvents()
+        }
+    }
+
+    private fun loadScheduleEvents() {
+        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
+            ?: return
+
+        val now = YearMonth.now()
+        val startMonth = now.minusMonths(1)
+        val endMonth = now.plusMonths(1)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val from = startMonth.atDay(1).atStartOfDay()
+                val to = endMonth.plusMonths(1).atDay(1).atStartOfDay()
+                val response = api.listEvents(DateUtils.toRfc3339(from), DateUtils.toRfc3339(to))
+                if (response.isSuccessful) {
+                    _uiState.update {
+                        it.copy(
+                            scheduleEvents = response.body() ?: emptyList(),
+                            scheduleStartMonth = startMonth,
+                            scheduleEndMonth = endMonth,
+                            isLoading = false,
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = "Error: ${response.code()}") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun loadMoreScheduleEvents(loadNext: Boolean) {
+        if (_uiState.value.isLoadingMore) return
+
+        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
+            ?: return
+
+        val state = _uiState.value
+        val targetMonth = if (loadNext) state.scheduleEndMonth.plusMonths(1) else state.scheduleStartMonth.minusMonths(1)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try {
+                val from = targetMonth.atDay(1).atStartOfDay()
+                val to = targetMonth.plusMonths(1).atDay(1).atStartOfDay()
+                val response = api.listEvents(DateUtils.toRfc3339(from), DateUtils.toRfc3339(to))
+                if (response.isSuccessful) {
+                    val newEvents = response.body() ?: emptyList()
+                    _uiState.update {
+                        it.copy(
+                            scheduleEvents = if (loadNext) it.scheduleEvents + newEvents else newEvents + it.scheduleEvents,
+                            scheduleStartMonth = if (loadNext) it.scheduleStartMonth else targetMonth,
+                            scheduleEndMonth = if (loadNext) targetMonth else it.scheduleEndMonth,
+                            isLoadingMore = false,
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoadingMore = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingMore = false) }
+            }
+        }
     }
 
     fun loadEvents() {

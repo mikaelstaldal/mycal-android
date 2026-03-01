@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -73,6 +75,13 @@ fun CalendarScreen(
                 TopAppBar(
                     title = { Text("MyCal") },
                     actions = {
+                        IconButton(onClick = { viewModel.toggleViewMode() }) {
+                            if (state.viewMode == ViewMode.SCHEDULE) {
+                                Icon(Icons.Default.CalendarMonth, contentDescription = "Month view")
+                            } else {
+                                Icon(Icons.AutoMirrored.Default.ViewList, contentDescription = "Schedule view")
+                            }
+                        }
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
@@ -104,25 +113,33 @@ fun CalendarScreen(
                 onRefresh = { viewModel.refresh() },
                 modifier = Modifier.padding(padding),
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MonthHeader(
-                        month = state.currentMonth,
-                        onPrevious = { viewModel.previousMonth() },
-                        onNext = { viewModel.nextMonth() },
-                    )
-                    CalendarGrid(
-                        month = state.currentMonth,
-                        selectedDate = state.selectedDate,
-                        events = state.events,
-                        onDateSelected = { viewModel.selectDate(it) },
-                    )
-                    HorizontalDivider()
-                    DayEventList(
-                        date = state.selectedDate,
-                        events = state.selectedDayEvents,
+                if (state.viewMode == ViewMode.SCHEDULE) {
+                    ScheduleContent(
+                        state = state,
                         onEventClick = onNavigateToEvent,
-                        modifier = Modifier.weight(1f),
+                        onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
                     )
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        MonthHeader(
+                            month = state.currentMonth,
+                            onPrevious = { viewModel.previousMonth() },
+                            onNext = { viewModel.nextMonth() },
+                        )
+                        CalendarGrid(
+                            month = state.currentMonth,
+                            selectedDate = state.selectedDate,
+                            events = state.events,
+                            onDateSelected = { viewModel.selectDate(it) },
+                        )
+                        HorizontalDivider()
+                        DayEventList(
+                            date = state.selectedDate,
+                            events = state.selectedDayEvents,
+                            onEventClick = onNavigateToEvent,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
@@ -367,32 +384,37 @@ fun EventListItem(
     event: EventDto,
     onClick: () -> Unit,
 ) {
-    val eventColor = cssColorToComposeColor(event.color)
+    val bgColor = cssColorToComposeColor(event.color) ?: MaterialTheme.colorScheme.primaryContainer
+    val contentColor = if (cssColorToComposeColor(event.color) != null) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
 
-    ListItem(
-        headlineContent = {
-            Text(event.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        },
-        supportingContent = {
-            val timeText = if (event.allDay) {
-                "All day"
-            } else {
-                "${DateUtils.formatDisplayTime(event.startTime)} - ${DateUtils.formatDisplayTime(event.endTime)}"
-            }
-            Text(timeText)
-        },
-        leadingContent = {
-            if (eventColor != null) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(eventColor),
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!event.allDay) {
+                Text(
+                    text = "${DateUtils.formatDisplayTime(event.startTime)} - ${DateUtils.formatDisplayTime(event.endTime)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.8f),
                 )
             }
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
+        }
+    }
 }
 
 fun cssColorToComposeColor(name: String?): Color? {
