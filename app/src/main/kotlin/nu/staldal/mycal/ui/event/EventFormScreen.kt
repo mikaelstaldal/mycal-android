@@ -1,5 +1,7 @@
 package nu.staldal.mycal.ui.event
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,9 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 data class ColorOption(val name: String, val color: Color)
 
@@ -147,39 +152,31 @@ fun EventFormScreen(
             }
 
             // Date fields
-            OutlinedTextField(
+            DatePickerField(
                 value = state.startDate,
-                onValueChange = { viewModel.updateStartDate(it) },
-                label = { Text("Start Date (yyyy-MM-dd)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                label = "Start Date",
+                onDateSelected = { viewModel.updateStartDate(it) },
             )
 
             if (!state.allDay) {
-                OutlinedTextField(
+                TimePickerField(
                     value = state.startTime,
-                    onValueChange = { viewModel.updateStartTime(it) },
-                    label = { Text("Start Time (HH:mm)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
+                    label = "Start Time",
+                    onTimeSelected = { viewModel.updateStartTime(it) },
                 )
             }
 
-            OutlinedTextField(
+            DatePickerField(
                 value = state.endDate,
-                onValueChange = { viewModel.updateEndDate(it) },
-                label = { Text("End Date (yyyy-MM-dd)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                label = "End Date",
+                onDateSelected = { viewModel.updateEndDate(it) },
             )
 
             if (!state.allDay) {
-                OutlinedTextField(
+                TimePickerField(
                     value = state.endTime,
-                    onValueChange = { viewModel.updateEndTime(it) },
-                    label = { Text("End Time (HH:mm)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
+                    label = "End Time",
+                    onTimeSelected = { viewModel.updateEndTime(it) },
                 )
             }
 
@@ -219,6 +216,133 @@ fun EventFormScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DatePickerField(
+    value: String,
+    label: String,
+    onDateSelected: (String) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    val initialMillis = try {
+        LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+    } catch (_: DateTimeParseException) {
+        null
+    }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true },
+        singleLine = true,
+        interactionSource = remember { MutableInteractionSource() }.also { interactionSource ->
+            LaunchedEffect(interactionSource) {
+                interactionSource.interactions.collect { interaction ->
+                    if (interaction is PressInteraction.Release) {
+                        showDialog = true
+                    }
+                }
+            }
+        },
+    )
+
+    if (showDialog) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        onDateSelected(date.toString())
+                    }
+                    showDialog = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerField(
+    value: String,
+    label: String,
+    onTimeSelected: (String) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    val (initialHour, initialMinute) = try {
+        val time = LocalTime.parse(value, DateTimeFormatter.ofPattern("HH:mm"))
+        time.hour to time.minute
+    } catch (_: DateTimeParseException) {
+        0 to 0
+    }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true },
+        singleLine = true,
+        interactionSource = remember { MutableInteractionSource() }.also { interactionSource ->
+            LaunchedEffect(interactionSource) {
+                interactionSource.interactions.collect { interaction ->
+                    if (interaction is PressInteraction.Release) {
+                        showDialog = true
+                    }
+                }
+            }
+        },
+    )
+
+    if (showDialog) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val formatted = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+                    onTimeSelected(formatted)
+                    showDialog = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            title = { Text(label) },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+        )
     }
 }
 

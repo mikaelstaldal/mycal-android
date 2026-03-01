@@ -29,7 +29,7 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 - Single-activity architecture with Compose Navigation
 - `RetrofitClient` is a singleton that rebuilds the OkHttp/Retrofit instance when server URL or credentials change
 - ViewModels use `AndroidViewModel` to access application context for DataStore
-- Dates are entered as text fields (yyyy-MM-dd, HH:mm) — no native date/time pickers
+- Dates/times use Material 3 DatePicker and TimePicker dialogs, storing values as `yyyy-MM-dd` and `HH:mm` strings
 - All API timestamps use RFC 3339 format, converted to local timezone for display
 
 ## API
