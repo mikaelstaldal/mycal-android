@@ -1,6 +1,7 @@
 package nu.staldal.mycal.ui.event
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -9,11 +10,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -24,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import nu.staldal.mycal.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,8 +112,48 @@ fun EventDetailScreen(
                         DetailRow("End", DateUtils.formatDisplayDateTime(event.endTime))
                     }
 
-                    if (event.location.isNotBlank()) {
-                        DetailRow("Location", event.location)
+                    if (event.location.isNotBlank() || (event.latitude != null && event.longitude != null)) {
+                        val context = LocalContext.current
+                        val hasCoordinates = event.latitude != null && event.longitude != null
+                        val displayText = if (event.location.isNotBlank()) {
+                            event.location
+                        } else {
+                            "${event.latitude}, ${event.longitude}"
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable {
+                                val geoUri = if (hasCoordinates) {
+                                    val label = Uri.encode(displayText)
+                                    Uri.parse("geo:${event.latitude},${event.longitude}?q=${event.latitude},${event.longitude}($label)")
+                                } else {
+                                    val encodedLocation = Uri.encode(event.location)
+                                    Uri.parse("geo:0,0?q=$encodedLocation")
+                                }
+                                val intent = Intent(Intent.ACTION_VIEW, geoUri)
+                                try {
+                                    context.startActivity(Intent.createChooser(intent, "Open in map"))
+                                } catch (_: ActivityNotFoundException) {
+                                    // No map app installed
+                                }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = "Open in map",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Location: ",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            Text(
+                                text = displayText,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
 
                     if (event.description.isNotBlank()) {
