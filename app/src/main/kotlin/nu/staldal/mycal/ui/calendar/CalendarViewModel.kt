@@ -3,16 +3,20 @@ package nu.staldal.mycal.ui.calendar
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import nu.staldal.mycal.MyCalApplication
+import nu.staldal.mycal.data.ConnectivityObserver
+import nu.staldal.mycal.data.EventRepository
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.ServerConfig
 import nu.staldal.mycal.data.preferences.UserPreferences
+import nu.staldal.mycal.data.sync.SyncWorker
 import nu.staldal.mycal.util.DateUtils
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 
 enum class ViewMode { SCHEDULE, MONTH }
 
@@ -32,23 +36,46 @@ data class CalendarUiState(
     val scheduleStartMonth: YearMonth = YearMonth.now(),
     val scheduleEndMonth: YearMonth = YearMonth.now(),
     val isLoadingMore: Boolean = false,
+    val isOnline: Boolean = true,
+    val pendingChangesCount: Int = 0,
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = UserPreferences(application)
+    private val database = (application as MyCalApplication).database
+    private val connectivityObserver = ConnectivityObserver(application)
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     private var serverConfig = ServerConfig()
+    private var monthEventsJob: Job? = null
+    private var scheduleEventsJob: Job? = null
+
+    private val repository = EventRepository(database) {
+        RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
+    }
 
     init {
+        viewModelScope.launch {
+            connectivityObserver.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
+
+        viewModelScope.launch {
+            repository.getPendingChangeCount().collect { count ->
+                _uiState.update { it.copy(pendingChangesCount = count) }
+            }
+        }
+
         viewModelScope.launch {
             prefs.serverConfig.collect { config ->
                 serverConfig = config
                 _uiState.update { it.copy(isConfigured = config.isConfigured) }
                 if (config.isConfigured) {
-                    loadEvents()
-                    loadScheduleEvents()
+                    collectMonthEvents()
+                    collectScheduleEvents()
+                    refreshEvents()
                 }
             }
         }
@@ -56,12 +83,14 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     fun previousMonth() {
         _uiState.update { it.copy(currentMonth = it.currentMonth.minusMonths(1)) }
-        loadEvents()
+        collectMonthEvents()
+        refreshEvents()
     }
 
     fun nextMonth() {
         _uiState.update { it.copy(currentMonth = it.currentMonth.plusMonths(1)) }
-        loadEvents()
+        collectMonthEvents()
+        refreshEvents()
     }
 
     fun selectDate(date: LocalDate) {
@@ -86,38 +115,77 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     fun refresh() {
         if (_uiState.value.viewMode == ViewMode.SCHEDULE) {
-            loadScheduleEvents()
+            refreshScheduleEvents()
         } else {
-            loadEvents()
+            refreshEvents()
         }
     }
 
-    private fun loadScheduleEvents() {
-        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
-            ?: return
+    private fun collectMonthEvents() {
+        monthEventsJob?.cancel()
+        val month = _uiState.value.currentMonth
+        val from = DateUtils.toRfc3339(month.atDay(1).atStartOfDay())
+        val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
 
+        monthEventsJob = viewModelScope.launch {
+            repository.getEventsBetween(from, to).collect { events ->
+                val selectedDate = _uiState.value.selectedDate
+                _uiState.update {
+                    it.copy(
+                        events = events,
+                        selectedDayEvents = events.filter { event ->
+                            val eventDate = DateUtils.parseToLocalDate(event.startTime)
+                            eventDate == selectedDate
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    private fun collectScheduleEvents() {
+        scheduleEventsJob?.cancel()
         val now = YearMonth.now()
         val startMonth = now.minusMonths(1)
         val endMonth = now.plusMonths(1)
+        val from = DateUtils.toRfc3339(startMonth.atDay(1).atStartOfDay())
+        val to = DateUtils.toRfc3339(endMonth.plusMonths(1).atDay(1).atStartOfDay())
+
+        _uiState.update { it.copy(scheduleStartMonth = startMonth, scheduleEndMonth = endMonth) }
+
+        scheduleEventsJob = viewModelScope.launch {
+            repository.getEventsBetween(from, to).collect { events ->
+                _uiState.update { it.copy(scheduleEvents = events) }
+            }
+        }
+    }
+
+    private fun refreshEvents() {
+        val month = _uiState.value.currentMonth
+        val from = DateUtils.toRfc3339(month.atDay(1).atStartOfDay())
+        val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val from = startMonth.atDay(1).atStartOfDay()
-                val to = endMonth.plusMonths(1).atDay(1).atStartOfDay()
-                val response = api.listEvents(DateUtils.toRfc3339(from), DateUtils.toRfc3339(to))
-                if (response.isSuccessful) {
-                    _uiState.update {
-                        it.copy(
-                            scheduleEvents = response.body() ?: emptyList(),
-                            scheduleStartMonth = startMonth,
-                            scheduleEndMonth = endMonth,
-                            isLoading = false,
-                        )
-                    }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, error = "Error: ${response.code()}") }
-                }
+                repository.refreshEvents(from, to)
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    private fun refreshScheduleEvents() {
+        val state = _uiState.value
+        val from = DateUtils.toRfc3339(state.scheduleStartMonth.atDay(1).atStartOfDay())
+        val to = DateUtils.toRfc3339(state.scheduleEndMonth.plusMonths(1).atDay(1).atStartOfDay())
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                repository.refreshEvents(from, to)
+                _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -127,71 +195,47 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun loadMoreScheduleEvents(loadNext: Boolean) {
         if (_uiState.value.isLoadingMore) return
 
-        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
-            ?: return
-
         val state = _uiState.value
         val targetMonth = if (loadNext) state.scheduleEndMonth.plusMonths(1) else state.scheduleStartMonth.minusMonths(1)
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMore = true) }
-            try {
-                val from = targetMonth.atDay(1).atStartOfDay()
-                val to = targetMonth.plusMonths(1).atDay(1).atStartOfDay()
-                val response = api.listEvents(DateUtils.toRfc3339(from), DateUtils.toRfc3339(to))
-                if (response.isSuccessful) {
-                    val newEvents = response.body() ?: emptyList()
-                    _uiState.update {
-                        it.copy(
-                            scheduleEvents = if (loadNext) it.scheduleEvents + newEvents else newEvents + it.scheduleEvents,
-                            scheduleStartMonth = if (loadNext) it.scheduleStartMonth else targetMonth,
-                            scheduleEndMonth = if (loadNext) targetMonth else it.scheduleEndMonth,
-                            isLoadingMore = false,
-                        )
-                    }
-                } else {
-                    _uiState.update { it.copy(isLoadingMore = false) }
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoadingMore = false) }
+        // Update range and re-collect
+        _uiState.update {
+            it.copy(
+                scheduleStartMonth = if (loadNext) it.scheduleStartMonth else targetMonth,
+                scheduleEndMonth = if (loadNext) targetMonth else it.scheduleEndMonth,
+                isLoadingMore = true,
+            )
+        }
+
+        // Re-collect with the wider range
+        scheduleEventsJob?.cancel()
+        val updatedState = _uiState.value
+        val from = DateUtils.toRfc3339(updatedState.scheduleStartMonth.atDay(1).atStartOfDay())
+        val to = DateUtils.toRfc3339(updatedState.scheduleEndMonth.plusMonths(1).atDay(1).atStartOfDay())
+
+        scheduleEventsJob = viewModelScope.launch {
+            repository.getEventsBetween(from, to).collect { events ->
+                _uiState.update { it.copy(scheduleEvents = events, isLoadingMore = false) }
             }
+        }
+
+        // Also refresh from server for the new month
+        val targetFrom = DateUtils.toRfc3339(targetMonth.atDay(1).atStartOfDay())
+        val targetTo = DateUtils.toRfc3339(targetMonth.plusMonths(1).atDay(1).atStartOfDay())
+
+        viewModelScope.launch {
+            try {
+                repository.refreshEvents(targetFrom, targetTo)
+            } catch (_: Exception) {
+                // Silently fail — local data will still be shown
+            }
+            _uiState.update { it.copy(isLoadingMore = false) }
         }
     }
 
     fun loadEvents() {
-        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
-            ?: return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            try {
-                val month = _uiState.value.currentMonth
-                val from = month.atDay(1).atStartOfDay()
-                val to = month.plusMonths(1).atDay(1).atStartOfDay()
-                val fromStr = DateUtils.toRfc3339(from)
-                val toStr = DateUtils.toRfc3339(to)
-
-                val response = api.listEvents(fromStr, toStr)
-                if (response.isSuccessful) {
-                    val events = response.body() ?: emptyList()
-                    val selectedDate = _uiState.value.selectedDate
-                    _uiState.update {
-                        it.copy(
-                            events = events,
-                            selectedDayEvents = events.filter { event ->
-                                val eventDate = DateUtils.parseToLocalDate(event.startTime)
-                                eventDate == selectedDate
-                            },
-                            isLoading = false,
-                        )
-                    }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, error = "Error: ${response.code()}") }
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
+        collectMonthEvents()
+        refreshEvents()
     }
 
     fun search(query: String) {
@@ -201,21 +245,12 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             return
         }
 
-        val api = RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
-            ?: return
-
         viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true) }
             try {
-                val response = api.searchEvents(query)
-                if (response.isSuccessful) {
-                    _uiState.update {
-                        it.copy(isSearching = false, searchResults = response.body() ?: emptyList())
-                    }
-                } else {
-                    _uiState.update { it.copy(isSearching = false) }
-                }
-            } catch (e: Exception) {
+                val results = repository.searchEvents(query)
+                _uiState.update { it.copy(isSearching = false, searchResults = results) }
+            } catch (_: Exception) {
                 _uiState.update { it.copy(isSearching = false) }
             }
         }
@@ -223,5 +258,29 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     fun clearSearch() {
         _uiState.update { it.copy(searchQuery = "", isSearching = false, searchResults = emptyList()) }
+    }
+
+    fun syncNow() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                repository.syncPendingChanges()
+                // Refresh current view after sync
+                val state = _uiState.value
+                if (state.viewMode == ViewMode.SCHEDULE) {
+                    val from = DateUtils.toRfc3339(state.scheduleStartMonth.atDay(1).atStartOfDay())
+                    val to = DateUtils.toRfc3339(state.scheduleEndMonth.plusMonths(1).atDay(1).atStartOfDay())
+                    repository.refreshEvents(from, to)
+                } else {
+                    val month = state.currentMonth
+                    val from = DateUtils.toRfc3339(month.atDay(1).atStartOfDay())
+                    val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
+                    repository.refreshEvents(from, to)
+                }
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
     }
 }

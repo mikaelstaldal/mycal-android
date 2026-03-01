@@ -1,0 +1,31 @@
+package nu.staldal.mycal.data.local
+
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface EventDao {
+    @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to ORDER BY startTime")
+    fun getEventsBetween(from: String, to: String): Flow<List<EventEntity>>
+
+    @Query("SELECT * FROM events WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR location LIKE '%' || :query || '%' ORDER BY startTime")
+    suspend fun searchEvents(query: String): List<EventEntity>
+
+    @Query("SELECT * FROM events WHERE id = :id")
+    suspend fun getEventById(id: Long): EventEntity?
+
+    @Upsert
+    suspend fun upsertEvents(events: List<EventEntity>)
+
+    @Upsert
+    suspend fun upsertEvent(event: EventEntity)
+
+    @Query("DELETE FROM events WHERE id = :id")
+    suspend fun deleteEvent(id: Long)
+
+    @Query("DELETE FROM events WHERE id NOT IN (:keepIds) AND id > 0 AND startTime >= :from AND startTime < :to")
+    suspend fun deleteStaleEvents(keepIds: List<Long>, from: String, to: String)
+
+    @Query("SELECT MIN(id) FROM events")
+    suspend fun getMinId(): Long?
+}

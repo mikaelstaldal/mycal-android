@@ -85,6 +85,23 @@ fun CalendarScreen(
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
+                        if (state.isOnline) {
+                            if (state.pendingChangesCount > 0) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge { Text("${state.pendingChangesCount}") }
+                                    },
+                                ) {
+                                    IconButton(onClick = { viewModel.syncNow() }) {
+                                        Icon(Icons.Default.Sync, contentDescription = "Sync now")
+                                    }
+                                }
+                            } else {
+                                IconButton(onClick = { viewModel.syncNow() }) {
+                                    Icon(Icons.Default.Sync, contentDescription = "Sync now")
+                                }
+                            }
+                        }
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
@@ -100,45 +117,59 @@ fun CalendarScreen(
             }
         },
     ) { padding ->
-        if (showSearch && state.searchQuery.isNotBlank()) {
-            SearchResults(
-                results = state.searchResults,
-                isSearching = state.isSearching,
-                onEventClick = onNavigateToEvent,
-                modifier = Modifier.padding(padding),
-            )
-        } else {
-            PullToRefreshBox(
-                isRefreshing = state.isLoading,
-                onRefresh = { viewModel.refresh() },
-                modifier = Modifier.padding(padding),
-            ) {
-                if (state.viewMode == ViewMode.SCHEDULE) {
-                    ScheduleContent(
-                        state = state,
-                        onEventClick = onNavigateToEvent,
-                        onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
+        Column(modifier = Modifier.padding(padding)) {
+            if (!state.isOnline) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Offline",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        MonthHeader(
-                            month = state.currentMonth,
-                            onPrevious = { viewModel.previousMonth() },
-                            onNext = { viewModel.nextMonth() },
-                        )
-                        CalendarGrid(
-                            month = state.currentMonth,
-                            selectedDate = state.selectedDate,
-                            events = state.events,
-                            onDateSelected = { viewModel.selectDate(it) },
-                        )
-                        HorizontalDivider()
-                        DayEventList(
-                            date = state.selectedDate,
-                            events = state.selectedDayEvents,
+                }
+            }
+
+            if (showSearch && state.searchQuery.isNotBlank()) {
+                SearchResults(
+                    results = state.searchResults,
+                    isSearching = state.isSearching,
+                    onEventClick = onNavigateToEvent,
+                )
+            } else {
+                PullToRefreshBox(
+                    isRefreshing = state.isLoading,
+                    onRefresh = { viewModel.refresh() },
+                ) {
+                    if (state.viewMode == ViewMode.SCHEDULE) {
+                        ScheduleContent(
+                            state = state,
                             onEventClick = onNavigateToEvent,
-                            modifier = Modifier.weight(1f),
+                            onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
                         )
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            MonthHeader(
+                                month = state.currentMonth,
+                                onPrevious = { viewModel.previousMonth() },
+                                onNext = { viewModel.nextMonth() },
+                            )
+                            CalendarGrid(
+                                month = state.currentMonth,
+                                selectedDate = state.selectedDate,
+                                events = state.events,
+                                onDateSelected = { viewModel.selectDate(it) },
+                            )
+                            HorizontalDivider()
+                            DayEventList(
+                                date = state.selectedDate,
+                                events = state.selectedDayEvents,
+                                onEventClick = onNavigateToEvent,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }

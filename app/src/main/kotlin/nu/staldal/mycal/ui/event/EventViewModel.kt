@@ -3,8 +3,13 @@ package nu.staldal.mycal.ui.event
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import nu.staldal.mycal.MyCalApplication
+import nu.staldal.mycal.data.EventRepository
 import nu.staldal.mycal.data.api.*
+import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.UserPreferences
+import nu.staldal.mycal.data.sync.SyncWorker
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -34,6 +39,7 @@ data class EventFormState(
 
 class EventViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = UserPreferences(application)
+    private val database = (application as MyCalApplication).database
     private val _detailState = MutableStateFlow(EventDetailState())
     val detailState: StateFlow<EventDetailState> = _detailState.asStateFlow()
 
@@ -44,21 +50,29 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         prefs.serverConfig.first()
     }
 
-    private suspend fun getApi(): ApiService? {
-        val config = serverConfigDeferred.await()
-        return RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val repository by lazy {
+        EventRepository(database) {
+            val config = serverConfigDeferred.getCompleted()
+            RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
+        }
+    }
+
+    private suspend fun getRepository(): EventRepository {
+        serverConfigDeferred.await()
+        return repository
     }
 
     fun loadEvent(id: Long) {
         viewModelScope.launch {
-            val api = getApi() ?: return@launch
+            val repo = getRepository()
             _detailState.update { it.copy(isLoading = true, error = null) }
             try {
-                val response = api.getEvent(id)
-                if (response.isSuccessful) {
-                    _detailState.update { it.copy(event = response.body(), isLoading = false) }
+                val event = repo.getEvent(id)
+                if (event != null) {
+                    _detailState.update { it.copy(event = event, isLoading = false) }
                 } else {
-                    _detailState.update { it.copy(isLoading = false, error = "Error: ${response.code()}") }
+                    _detailState.update { it.copy(isLoading = false, error = "Event not found") }
                 }
             } catch (e: Exception) {
                 _detailState.update { it.copy(isLoading = false, error = e.message) }
@@ -68,15 +82,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteEvent(id: Long) {
         viewModelScope.launch {
-            val api = getApi() ?: return@launch
+            val repo = getRepository()
             _detailState.update { it.copy(isLoading = true) }
             try {
-                val response = api.deleteEvent(id)
-                if (response.isSuccessful) {
-                    _detailState.update { it.copy(isDeleted = true, isLoading = false) }
-                } else {
-                    _detailState.update { it.copy(isLoading = false, error = "Delete failed: ${response.code()}") }
-                }
+                repo.deleteEvent(id)
+                _detailState.update { it.copy(isDeleted = true, isLoading = false) }
+                SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _detailState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -85,12 +96,11 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadEventForEdit(id: Long) {
         viewModelScope.launch {
-            val api = getApi() ?: return@launch
+            val repo = getRepository()
             _formState.update { it.copy(isLoading = true) }
             try {
-                val response = api.getEvent(id)
-                if (response.isSuccessful) {
-                    val event = response.body()!!
+                val event = repo.getEvent(id)
+                if (event != null) {
                     val startLdt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(event.startTime)
                     val endLdt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(event.endTime)
                     _formState.update {
@@ -108,7 +118,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 } else {
-                    _formState.update { it.copy(isLoading = false, error = "Error: ${response.code()}") }
+                    _formState.update { it.copy(isLoading = false, error = "Event not found") }
                 }
             } catch (e: Exception) {
                 _formState.update { it.copy(isLoading = false, error = e.message) }
@@ -132,7 +142,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
-            val api = getApi() ?: return@launch
+            val repo = getRepository()
             _formState.update { it.copy(isSaving = true, error = null) }
             try {
                 val request = CreateEventRequest(
@@ -144,12 +154,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     allDay = form.allDay,
                     color = form.color,
                 )
-                val response = api.createEvent(request)
-                if (response.isSuccessful) {
-                    _formState.update { it.copy(isSaving = false, isSaved = true) }
-                } else {
-                    _formState.update { it.copy(isSaving = false, error = "Error: ${response.code()}") }
-                }
+                repo.createEvent(request)
+                _formState.update { it.copy(isSaving = false, isSaved = true) }
+                SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _formState.update { it.copy(isSaving = false, error = e.message) }
             }
@@ -162,7 +169,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
-            val api = getApi() ?: return@launch
+            val repo = getRepository()
             _formState.update { it.copy(isSaving = true, error = null) }
             try {
                 val request = UpdateEventRequest(
@@ -174,12 +181,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     allDay = form.allDay,
                     color = form.color,
                 )
-                val response = api.updateEvent(id, request)
-                if (response.isSuccessful) {
-                    _formState.update { it.copy(isSaving = false, isSaved = true) }
-                } else {
-                    _formState.update { it.copy(isSaving = false, error = "Error: ${response.code()}") }
-                }
+                repo.updateEvent(id, request)
+                _formState.update { it.copy(isSaving = false, isSaved = true) }
+                SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _formState.update { it.copy(isSaving = false, error = e.message) }
             }
