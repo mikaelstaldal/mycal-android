@@ -10,6 +10,7 @@ import nu.staldal.mycal.data.api.*
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.data.sync.SyncWorker
+import nu.staldal.mycal.notification.NotificationScheduler
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -31,6 +32,7 @@ data class EventFormState(
     val endTime: String = "",   // HH:mm
     val allDay: Boolean = false,
     val color: String = "",
+    val reminderMinutes: Int = 0,
     val isSaving: Boolean = false,
     val error: String? = null,
     val isSaved: Boolean = false,
@@ -114,6 +116,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             endTime = if (event.allDay) "" else endLdt?.toLocalTime()?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) ?: "",
                             allDay = event.allDay,
                             color = event.color,
+                            reminderMinutes = event.reminderMinutes,
                             isLoading = false,
                         )
                     }
@@ -135,6 +138,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun updateEndTime(value: String) { _formState.update { it.copy(endTime = value) } }
     fun updateAllDay(value: Boolean) { _formState.update { it.copy(allDay = value) } }
     fun updateColor(value: String) { _formState.update { it.copy(color = value) } }
+    fun updateReminderMinutes(value: Int) { _formState.update { it.copy(reminderMinutes = value) } }
 
     fun createEvent() {
         val form = _formState.value
@@ -153,8 +157,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     endTime = endTimeStr,
                     allDay = form.allDay,
                     color = form.color,
+                    reminderMinutes = form.reminderMinutes,
                 )
-                repo.createEvent(request)
+                val eventId = repo.createEvent(request)
+                scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
@@ -180,13 +186,29 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     endTime = endTimeStr,
                     allDay = form.allDay,
                     color = form.color,
+                    reminderMinutes = form.reminderMinutes,
                 )
                 repo.updateEvent(id, request)
+                scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _formState.update { it.copy(isSaving = false, error = e.message) }
             }
+        }
+    }
+
+    private fun scheduleReminderIfNeeded(eventId: Long, title: String, startTimeStr: String, reminderMinutes: Int) {
+        val context = getApplication<Application>()
+        if (reminderMinutes > 0) {
+            val ldt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr) ?: return
+            val triggerMillis = ldt.minusMinutes(reminderMinutes.toLong())
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+            NotificationScheduler.scheduleNotification(context, eventId, title, triggerMillis)
+        } else {
+            NotificationScheduler.cancelNotification(context, eventId)
         }
     }
 

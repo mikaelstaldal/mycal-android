@@ -59,6 +59,7 @@ class EventRepository(
             allDay = request.allDay,
             color = request.color,
             location = request.location,
+            reminderMinutes = request.reminderMinutes,
         )
         eventDao.upsertEvent(entity)
         pendingChangeDao.insert(PendingChange(eventId = tempId, changeType = ChangeType.CREATE))
@@ -75,6 +76,7 @@ class EventRepository(
             allDay = request.allDay ?: existing.allDay,
             color = request.color ?: existing.color,
             location = request.location ?: existing.location,
+            reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
         )
         eventDao.upsertEvent(updated)
         // If this is a local-only event (negative ID), the CREATE change will push latest state

@@ -50,6 +50,7 @@ fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     allDay = allDay,
     color = color,
     location = location,
+    reminderMinutes = reminderMinutes,
 )
 
 fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
@@ -60,4 +61,5 @@ fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     allDay = allDay,
     color = color,
     location = location,
+    reminderMinutes = reminderMinutes,
 )

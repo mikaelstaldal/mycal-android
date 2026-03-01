@@ -18,12 +18,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 data class ColorOption(val name: String, val color: Color)
+
+val REMINDER_OPTIONS = listOf(0, 5, 10, 15, 30, 60, 120, 1440)
 
 val EVENT_COLORS = listOf(
     ColorOption("", Color(0xFF9E9E9E)),
@@ -180,6 +183,12 @@ fun EventFormScreen(
                 )
             }
 
+            // Reminder picker
+            ReminderPicker(
+                selectedMinutes = state.reminderMinutes,
+                onMinutesSelected = { viewModel.updateReminderMinutes(it) },
+            )
+
             // Color picker
             Text("Color", style = MaterialTheme.typography.labelLarge)
             Row(
@@ -208,6 +217,43 @@ fun EventFormScreen(
 
             if (state.isSaving) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderPicker(
+    selectedMinutes: Int,
+    onMinutesSelected: (Int) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = NotificationScheduler.formatReminderMinutes(selectedMinutes),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Reminder") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            REMINDER_OPTIONS.forEach { minutes ->
+                DropdownMenuItem(
+                    text = { Text(NotificationScheduler.formatReminderMinutes(minutes)) },
+                    onClick = {
+                        onMinutesSelected(minutes)
+                        expanded = false
+                    },
+                )
             }
         }
     }

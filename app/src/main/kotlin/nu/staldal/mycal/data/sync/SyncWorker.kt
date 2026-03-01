@@ -5,7 +5,9 @@ import androidx.work.*
 import nu.staldal.mycal.data.EventRepository
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.local.AppDatabase
+import nu.staldal.mycal.data.local.ChangeType
 import nu.staldal.mycal.data.preferences.UserPreferences
+import nu.staldal.mycal.notification.NotificationScheduler
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -25,7 +27,19 @@ class SyncWorker(
         }
 
         return try {
+            // Capture temp IDs from pending CREATEs before sync replaces them
+            val tempIds = database.pendingChangeDao().getAllChanges()
+                .filter { it.changeType == ChangeType.CREATE }
+                .map { it.eventId }
+
             repository.syncPendingChanges()
+
+            // Cancel alarms for old temp IDs that were replaced with server IDs
+            for (oldId in tempIds) {
+                NotificationScheduler.cancelNotification(applicationContext, oldId)
+            }
+
+            NotificationScheduler.rescheduleAllNotifications(applicationContext, database)
             Result.success()
         } catch (_: Exception) {
             Result.retry()

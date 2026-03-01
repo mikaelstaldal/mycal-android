@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
 import nu.staldal.mycal.util.DateUtils
 
@@ -112,6 +113,10 @@ fun EventDetailScreen(
                     if (event.description.isNotBlank()) {
                         Text("Description", style = MaterialTheme.typography.labelLarge)
                         Text(htmlToAnnotatedString(event.description))
+                    }
+
+                    if (event.reminderMinutes > 0) {
+                        DetailRow("Reminder", NotificationScheduler.formatReminderMinutes(event.reminderMinutes))
                     }
 
                     if (event.recurrenceFreq.isNotBlank()) {

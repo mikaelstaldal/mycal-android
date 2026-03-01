@@ -28,4 +28,7 @@ interface EventDao {
 
     @Query("SELECT MIN(id) FROM events")
     suspend fun getMinId(): Long?
+
+    @Query("SELECT * FROM events WHERE reminderMinutes > 0 AND startTime >= :from AND startTime < :to")
+    suspend fun getEventsWithReminders(from: String, to: String): List<EventEntity>
 }
