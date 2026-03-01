@@ -4,8 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import nu.staldal.mycal.data.api.*
-import nu.staldal.mycal.data.preferences.ServerConfig
 import nu.staldal.mycal.data.preferences.UserPreferences
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -40,23 +40,18 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     private val _formState = MutableStateFlow(EventFormState())
     val formState: StateFlow<EventFormState> = _formState.asStateFlow()
 
-    private var serverConfig = ServerConfig()
-
-    init {
-        viewModelScope.launch {
-            prefs.serverConfig.first().let { config ->
-                serverConfig = config
-            }
-        }
+    private val serverConfigDeferred = viewModelScope.async {
+        prefs.serverConfig.first()
     }
 
-    private fun getApi(): ApiService? {
-        return RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
+    private suspend fun getApi(): ApiService? {
+        val config = serverConfigDeferred.await()
+        return RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
     }
 
     fun loadEvent(id: Long) {
-        val api = getApi() ?: return
         viewModelScope.launch {
+            val api = getApi() ?: return@launch
             _detailState.update { it.copy(isLoading = true, error = null) }
             try {
                 val response = api.getEvent(id)
@@ -72,8 +67,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteEvent(id: Long) {
-        val api = getApi() ?: return
         viewModelScope.launch {
+            val api = getApi() ?: return@launch
             _detailState.update { it.copy(isLoading = true) }
             try {
                 val response = api.deleteEvent(id)
@@ -89,8 +84,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadEventForEdit(id: Long) {
-        val api = getApi() ?: return
         viewModelScope.launch {
+            val api = getApi() ?: return@launch
             _formState.update { it.copy(isLoading = true) }
             try {
                 val response = api.getEvent(id)
@@ -132,12 +127,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun updateColor(value: String) { _formState.update { it.copy(color = value) } }
 
     fun createEvent() {
-        val api = getApi() ?: return
         val form = _formState.value
 
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
+            val api = getApi() ?: return@launch
             _formState.update { it.copy(isSaving = true, error = null) }
             try {
                 val request = CreateEventRequest(
@@ -162,12 +157,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateEvent(id: Long) {
-        val api = getApi() ?: return
         val form = _formState.value
 
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
+            val api = getApi() ?: return@launch
             _formState.update { it.copy(isSaving = true, error = null) }
             try {
                 val request = UpdateEventRequest(
