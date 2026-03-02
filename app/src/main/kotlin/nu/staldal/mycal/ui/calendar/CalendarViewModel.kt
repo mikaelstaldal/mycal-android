@@ -38,6 +38,7 @@ data class CalendarUiState(
     val isLoadingMore: Boolean = false,
     val isOnline: Boolean = true,
     val pendingChangesCount: Int = 0,
+    val isOfflineMode: Boolean = false,
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -75,11 +76,13 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             prefs.serverConfig.collect { config ->
                 serverConfig = config
-                _uiState.update { it.copy(isConfigured = config.isConfigured) }
+                _uiState.update { it.copy(isConfigured = config.isConfigured, isOfflineMode = config.offlineMode) }
                 if (config.isConfigured) {
                     collectMonthEvents()
                     collectScheduleEvents()
-                    refreshEvents()
+                    if (!config.offlineMode) {
+                        refreshEvents()
+                    }
                 }
             }
         }
@@ -165,7 +168,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun refreshEvents() {
-        if (!_uiState.value.isOnline) return
+        if (_uiState.value.isOfflineMode || !_uiState.value.isOnline) return
 
         val month = _uiState.value.currentMonth
         val from = DateUtils.toRfc3339(month.atDay(1).atStartOfDay())
@@ -183,7 +186,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun refreshScheduleEvents() {
-        if (!_uiState.value.isOnline) return
+        if (_uiState.value.isOfflineMode || !_uiState.value.isOnline) return
 
         val state = _uiState.value
         val from = DateUtils.toRfc3339(state.scheduleStartMonth.atDay(1).atStartOfDay())
@@ -228,7 +231,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
 
         // Also refresh from server for the new month
-        if (_uiState.value.isOnline) {
+        if (!_uiState.value.isOfflineMode && _uiState.value.isOnline) {
             val targetFrom = DateUtils.toRfc3339(targetMonth.atDay(1).atStartOfDay())
             val targetTo = DateUtils.toRfc3339(targetMonth.plusMonths(1).atDay(1).atStartOfDay())
 
@@ -270,7 +273,14 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(searchQuery = "", isSearching = false, searchResults = emptyList()) }
     }
 
+    fun enableOfflineMode() {
+        viewModelScope.launch {
+            prefs.saveOfflineMode(true)
+        }
+    }
+
     fun syncNow() {
+        if (_uiState.value.isOfflineMode) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {

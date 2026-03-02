@@ -55,6 +55,10 @@ fun CalendarScreen(
                 Button(onClick = onNavigateToSettings) {
                     Text("Open Settings")
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = { viewModel.enableOfflineMode() }) {
+                    Text("Work Offline")
+                }
             }
         }
         return
@@ -85,7 +89,7 @@ fun CalendarScreen(
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
-                        if (state.isOnline) {
+                        if (!state.isOfflineMode && state.isOnline) {
                             if (state.pendingChangesCount > 0) {
                                 BadgedBox(
                                     badge = {
@@ -118,7 +122,7 @@ fun CalendarScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            if (!state.isOnline) {
+            if (!state.isOfflineMode && !state.isOnline) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.fillMaxWidth(),
