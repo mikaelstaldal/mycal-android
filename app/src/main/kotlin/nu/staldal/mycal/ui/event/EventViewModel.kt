@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import nu.staldal.mycal.MyCalApplication
 import nu.staldal.mycal.data.EventRepository
 import nu.staldal.mycal.data.api.*
@@ -33,6 +34,8 @@ data class EventFormState(
     val allDay: Boolean = false,
     val color: String = "",
     val reminderMinutes: Int = 0,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val isSaving: Boolean = false,
     val error: String? = null,
     val isSaved: Boolean = false,
@@ -47,6 +50,33 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _formState = MutableStateFlow(EventFormState())
     val formState: StateFlow<EventFormState> = _formState.asStateFlow()
+
+    private val _locationSuggestions = MutableStateFlow<List<NominatimPlace>>(emptyList())
+    val locationSuggestions: StateFlow<List<NominatimPlace>> = _locationSuggestions.asStateFlow()
+
+    private val _locationQuery = MutableStateFlow("")
+
+    init {
+        @OptIn(FlowPreview::class)
+        viewModelScope.launch {
+            _locationQuery
+                .drop(1) // skip initial empty value
+                .debounce(300)
+                .collectLatest { query ->
+                    if (query.length >= 3 && isNetworkAvailable()) {
+                        try {
+                            val results = NominatimClient.service.search(query)
+                            _locationSuggestions.value = results
+                        } catch (e: Exception) {
+                            android.util.Log.e("EventViewModel", "Nominatim search failed", e)
+                            _locationSuggestions.value = emptyList()
+                        }
+                    } else {
+                        _locationSuggestions.value = emptyList()
+                    }
+                }
+        }
+    }
 
     private val serverConfigDeferred = viewModelScope.async {
         prefs.serverConfig.first()
@@ -117,6 +147,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             allDay = event.allDay,
                             color = event.color,
                             reminderMinutes = event.reminderMinutes,
+                            latitude = event.latitude,
+                            longitude = event.longitude,
                             isLoading = false,
                         )
                     }
@@ -131,7 +163,21 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateTitle(value: String) { _formState.update { it.copy(title = value) } }
     fun updateDescription(value: String) { _formState.update { it.copy(description = value) } }
-    fun updateLocation(value: String) { _formState.update { it.copy(location = value) } }
+    fun updateLocation(value: String) {
+        _formState.update { it.copy(location = value, latitude = null, longitude = null) }
+        _locationQuery.value = value
+    }
+    fun selectLocationSuggestion(place: NominatimPlace) {
+        _formState.update {
+            it.copy(
+                location = place.display_name,
+                latitude = place.lat.toDoubleOrNull(),
+                longitude = place.lon.toDoubleOrNull(),
+            )
+        }
+        _locationSuggestions.value = emptyList()
+    }
+    fun clearLocationSuggestions() { _locationSuggestions.value = emptyList() }
     fun updateStartDate(value: String) { _formState.update { it.copy(startDate = value) } }
     fun updateStartTime(value: String) { _formState.update { it.copy(startTime = value) } }
     fun updateEndDate(value: String) { _formState.update { it.copy(endDate = value) } }
@@ -158,6 +204,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     allDay = form.allDay,
                     color = form.color,
                     reminderMinutes = form.reminderMinutes,
+                    latitude = form.latitude,
+                    longitude = form.longitude,
                 )
                 val eventId = repo.createEvent(request)
                 scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
@@ -187,6 +235,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     allDay = form.allDay,
                     color = form.color,
                     reminderMinutes = form.reminderMinutes,
+                    latitude = form.latitude,
+                    longitude = form.longitude,
                 )
                 repo.updateEvent(id, request)
                 scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)
@@ -210,6 +260,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             NotificationScheduler.cancelNotification(context, eventId)
         }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val cm = getApplication<Application>().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun buildTimestamps(form: EventFormState): Pair<String, String>? {

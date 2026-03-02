@@ -30,6 +30,8 @@ data class CreateEventRequest(
     val color: String = "",
     val location: String = "",
     @SerializedName("reminder_minutes") val reminderMinutes: Int = 0,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 data class UpdateEventRequest(
@@ -41,6 +43,8 @@ data class UpdateEventRequest(
     val color: String? = null,
     val location: String? = null,
     @SerializedName("reminder_minutes") val reminderMinutes: Int? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 data class ErrorResponse(

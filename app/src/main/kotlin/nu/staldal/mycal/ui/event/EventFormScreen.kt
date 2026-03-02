@@ -131,13 +131,7 @@ fun EventFormScreen(
                 maxLines = 5,
             )
 
-            OutlinedTextField(
-                value = state.location,
-                onValueChange = { viewModel.updateLocation(it) },
-                label = { Text("Location") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
+            LocationAutocompleteField(viewModel = viewModel, location = state.location)
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -378,6 +372,42 @@ private fun ReminderPicker(
                         expanded = false
                     },
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocationAutocompleteField(
+    viewModel: EventViewModel,
+    location: String,
+) {
+    val suggestions by viewModel.locationSuggestions.collectAsState()
+    val expanded = suggestions.isNotEmpty()
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { /* controlled by suggestions */ },
+    ) {
+        OutlinedTextField(
+            value = location,
+            onValueChange = { viewModel.updateLocation(it) },
+            label = { Text("Location") },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            singleLine = true,
+        )
+        if (expanded) {
+            ExposedDropdownMenu(
+                expanded = true,
+                onDismissRequest = { viewModel.clearLocationSuggestions() },
+            ) {
+                suggestions.forEach { place ->
+                    DropdownMenuItem(
+                        text = { Text(place.display_name, maxLines = 2) },
+                        onClick = { viewModel.selectLocationSuggestion(place) },
+                    )
+                }
             }
         }
     }
