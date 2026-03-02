@@ -120,6 +120,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setViewMode(mode: ViewMode) {
+        _uiState.update { it.copy(viewMode = mode) }
+    }
+
     fun refresh() {
         if (_uiState.value.viewMode == ViewMode.SCHEDULE) {
             refreshScheduleEvents()

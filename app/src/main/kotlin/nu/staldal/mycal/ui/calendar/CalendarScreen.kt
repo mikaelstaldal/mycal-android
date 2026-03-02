@@ -37,10 +37,17 @@ fun CalendarScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToEvent: (Long) -> Unit,
     onNavigateToNewEvent: () -> Unit,
+    forceScheduleView: Boolean = false,
     viewModel: CalendarViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
+
+    LaunchedEffect(forceScheduleView) {
+        if (forceScheduleView && state.viewMode != ViewMode.SCHEDULE) {
+            viewModel.setViewMode(ViewMode.SCHEDULE)
+        }
+    }
 
     if (!state.isConfigured) {
         Box(

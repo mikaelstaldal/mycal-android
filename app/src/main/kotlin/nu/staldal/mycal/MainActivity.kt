@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.navigation.NavGraph
 import nu.staldal.mycal.ui.theme.MyCalTheme
+import nu.staldal.mycal.widget.ScheduleWidget
 
 class MainActivity : ComponentActivity() {
 
@@ -26,9 +27,19 @@ class MainActivity : ComponentActivity() {
         NotificationScheduler.createNotificationChannel(this)
         requestNotificationPermissionIfNeeded()
 
+        val openSchedule = intent?.action == ScheduleWidget.ACTION_OPEN_SCHEDULE
+        val openNewEvent = intent?.action == ScheduleWidget.ACTION_NEW_EVENT
+        val viewEventId = if (intent?.action == ScheduleWidget.ACTION_VIEW_EVENT) {
+            intent.getLongExtra(ScheduleWidget.EXTRA_EVENT_ID, -1L).takeIf { it >= 0 }
+        } else null
+
         setContent {
             MyCalTheme {
-                NavGraph()
+                NavGraph(
+                    forceScheduleView = openSchedule,
+                    openNewEvent = openNewEvent,
+                    viewEventId = viewEventId,
+                )
             }
         }
     }

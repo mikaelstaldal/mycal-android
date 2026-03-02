@@ -1,6 +1,7 @@
 package nu.staldal.mycal.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,8 +13,24 @@ import nu.staldal.mycal.ui.event.EventFormScreen
 import nu.staldal.mycal.ui.settings.SettingsScreen
 
 @Composable
-fun NavGraph() {
+fun NavGraph(
+    forceScheduleView: Boolean = false,
+    openNewEvent: Boolean = false,
+    viewEventId: Long? = null,
+) {
     val navController = rememberNavController()
+
+    LaunchedEffect(openNewEvent) {
+        if (openNewEvent) {
+            navController.navigate("event/new")
+        }
+    }
+
+    LaunchedEffect(viewEventId) {
+        if (viewEventId != null) {
+            navController.navigate("event/$viewEventId")
+        }
+    }
 
     NavHost(navController = navController, startDestination = "calendar") {
         composable("calendar") {
@@ -21,6 +38,7 @@ fun NavGraph() {
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToEvent = { id -> navController.navigate("event/$id") },
                 onNavigateToNewEvent = { navController.navigate("event/new") },
+                forceScheduleView = forceScheduleView,
             )
         }
 

@@ -8,6 +8,9 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to ORDER BY startTime")
     fun getEventsBetween(from: String, to: String): Flow<List<EventEntity>>
 
+    @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to ORDER BY startTime")
+    fun getEventsBetweenBlocking(from: String, to: String): List<EventEntity>
+
     @Query("SELECT * FROM events WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR location LIKE '%' || :query || '%' ORDER BY startTime")
     suspend fun searchEvents(query: String): List<EventEntity>
 
