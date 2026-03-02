@@ -1,3 +1,4 @@
+ignored/
 .gradle
 build/
 !**/src/main/**/build/
