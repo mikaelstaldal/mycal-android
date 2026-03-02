@@ -25,7 +25,7 @@ interface ApiService {
         @Body request: CreateEventRequest,
     ): Response<EventDto>
 
-    @PUT("api/v1/events/{id}")
+    @PATCH("api/v1/events/{id}")
     suspend fun updateEvent(
         @Path("id") id: Long,
         @Body request: UpdateEventRequest,
