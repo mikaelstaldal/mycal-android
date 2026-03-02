@@ -93,15 +93,13 @@ fun EventDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        cssColorToComposeColor(event.color)?.let { color ->
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                                    .background(color),
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                        }
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(cssColorToComposeColor(event.color)),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(event.title, style = MaterialTheme.typography.headlineSmall)
                     }
 

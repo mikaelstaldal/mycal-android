@@ -172,8 +172,8 @@ private fun ScheduleEventItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bgColor = cssColorToComposeColor(event.color) ?: MaterialTheme.colorScheme.primaryContainer
-    val contentColor = if (cssColorToComposeColor(event.color) != null) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+    val bgColor = cssColorToComposeColor(event.color)
+    val contentColor = Color.White
 
     Surface(
         shape = RoundedCornerShape(8.dp),

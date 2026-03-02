@@ -379,7 +379,7 @@ private fun DayCell(
                 modifier = Modifier
                     .size(5.dp)
                     .clip(CircleShape)
-                    .background(cssColorToComposeColor(eventColor) ?: MaterialTheme.colorScheme.primary),
+                    .background(cssColorToComposeColor(eventColor)),
             )
         }
     }
@@ -420,8 +420,8 @@ fun EventListItem(
     event: EventDto,
     onClick: () -> Unit,
 ) {
-    val bgColor = cssColorToComposeColor(event.color) ?: MaterialTheme.colorScheme.primaryContainer
-    val contentColor = if (cssColorToComposeColor(event.color) != null) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+    val bgColor = cssColorToComposeColor(event.color)
+    val contentColor = Color.White
 
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -453,7 +453,9 @@ fun EventListItem(
     }
 }
 
-fun cssColorToComposeColor(name: String?): Color? {
+val DEFAULT_EVENT_COLOR = Color(0xFF1E90FF) // dodgerblue
+
+fun cssColorToComposeColor(name: String?): Color {
     return when (name?.lowercase()) {
         "dodgerblue" -> Color(0xFF1E90FF)
         "red" -> Color(0xFFFF0000)
@@ -463,6 +465,6 @@ fun cssColorToComposeColor(name: String?): Color? {
         "mediumturquoise" -> Color(0xFF48D1CC)
         "cornflowerblue" -> Color(0xFF6495ED)
         "salmon" -> Color(0xFFFA8072)
-        else -> null
+        else -> DEFAULT_EVENT_COLOR
     }
 }
