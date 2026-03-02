@@ -12,6 +12,7 @@ import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.data.sync.SyncWorker
 import nu.staldal.mycal.notification.NotificationScheduler
+import nu.staldal.mycal.widget.ScheduleWidget
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -119,6 +120,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 repo.deleteEvent(id)
                 _detailState.update { it.copy(isDeleted = true, isLoading = false) }
+                ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _detailState.update { it.copy(isLoading = false, error = e.message) }
@@ -210,6 +212,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 val eventId = repo.createEvent(request)
                 scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
+                ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _formState.update { it.copy(isSaving = false, error = e.message) }
@@ -241,6 +244,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 repo.updateEvent(id, request)
                 scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
+                ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
                 _formState.update { it.copy(isSaving = false, error = e.message) }
