@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -150,31 +149,27 @@ fun CalendarScreen(
                     onEventClick = onNavigateToEvent,
                 )
             } else {
-                PullToRefreshBox(
-                    isRefreshing = state.isLoading,
-                    onRefresh = { viewModel.refresh() },
-                ) {
-                    if (state.viewMode == ViewMode.SCHEDULE) {
-                        ScheduleContent(
-                            state = state,
-                            onEventClick = onNavigateToEvent,
-                            onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
+                if (state.viewMode == ViewMode.SCHEDULE) {
+                    ScheduleContent(
+                        state = state,
+                        onEventClick = onNavigateToEvent,
+                        onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        MonthHeader(
+                            month = state.currentMonth,
+                            onPrevious = { viewModel.previousMonth() },
+                            onNext = { viewModel.nextMonth() },
                         )
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            MonthHeader(
-                                month = state.currentMonth,
-                                onPrevious = { viewModel.previousMonth() },
-                                onNext = { viewModel.nextMonth() },
-                            )
-                            CalendarGrid(
-                                month = state.currentMonth,
-                                selectedDate = state.selectedDate,
-                                events = state.events,
-                                onDateSelected = { viewModel.selectDate(it) },
-                            )
-                            HorizontalDivider()
-                            DayEventList(
+                        CalendarGrid(
+                            month = state.currentMonth,
+                            selectedDate = state.selectedDate,
+                            events = state.events,
+                            onDateSelected = { viewModel.selectDate(it) },
+                        )
+                        HorizontalDivider()
+                        DayEventList(
                                 date = state.selectedDate,
                                 events = state.selectedDayEvents,
                                 onEventClick = onNavigateToEvent,
@@ -184,9 +179,8 @@ fun CalendarScreen(
                     }
                 }
             }
-        }
 
-        state.error?.let { error ->
+            state.error?.let { error ->
             Snackbar(
                 modifier = Modifier.padding(padding).padding(16.dp),
             ) {

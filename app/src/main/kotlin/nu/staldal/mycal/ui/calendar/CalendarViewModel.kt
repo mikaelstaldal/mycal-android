@@ -157,8 +157,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private fun collectScheduleEvents() {
         scheduleEventsJob?.cancel()
         val now = YearMonth.now()
-        val startMonth = now.minusMonths(1)
-        val endMonth = now.plusMonths(1)
+        val startMonth = now
+        val endMonth = now.plusMonths(2)
         val from = DateUtils.toRfc3339(startMonth.atDay(1).atStartOfDay())
         val to = DateUtils.toRfc3339(endMonth.plusMonths(1).atDay(1).atStartOfDay())
 

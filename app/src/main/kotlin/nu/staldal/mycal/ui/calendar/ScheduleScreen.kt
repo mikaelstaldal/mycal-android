@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -43,19 +44,6 @@ fun ScheduleContent(
     }
 
     val listState = rememberLazyListState()
-
-    // Find today's index for initial scroll
-    val todayIndex = remember(dayItems) {
-        val today = LocalDate.now()
-        dayItems.indexOfFirst { it.date == today }.coerceAtLeast(0)
-    }
-
-    // Scroll to today on first composition
-    LaunchedEffect(todayIndex) {
-        if (dayItems.isNotEmpty()) {
-            listState.scrollToItem(todayIndex)
-        }
-    }
 
     // Auto-load more when near edges
     val shouldLoadNext by remember {
@@ -215,7 +203,10 @@ private fun ScheduleEventItem(
 }
 
 private fun buildScheduleDays(state: CalendarUiState): List<ScheduleDayItem> {
-    val startDate = state.scheduleStartMonth.atDay(1)
+    val today = LocalDate.now()
+    val monthStart = state.scheduleStartMonth.atDay(1)
+    val currentMonthStart = YearMonth.now().atDay(1)
+    val startDate = if (monthStart == currentMonthStart) today else monthStart
     val endDate = state.scheduleEndMonth.atEndOfMonth()
 
     val eventsByDate = state.scheduleEvents
