@@ -58,7 +58,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     init {
         viewModelScope.launch {
             connectivityObserver.isOnline.collect { online ->
-                _uiState.update { it.copy(isOnline = online) }
+                val wasOffline = !_uiState.value.isOnline
+                _uiState.update { it.copy(isOnline = online, error = if (!online) null else it.error) }
+                if (online && wasOffline && _uiState.value.isConfigured) {
+                    refresh()
+                }
             }
         }
 
@@ -161,6 +165,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun refreshEvents() {
+        if (!_uiState.value.isOnline) return
+
         val month = _uiState.value.currentMonth
         val from = DateUtils.toRfc3339(month.atDay(1).atStartOfDay())
         val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
@@ -177,6 +183,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun refreshScheduleEvents() {
+        if (!_uiState.value.isOnline) return
+
         val state = _uiState.value
         val from = DateUtils.toRfc3339(state.scheduleStartMonth.atDay(1).atStartOfDay())
         val to = DateUtils.toRfc3339(state.scheduleEndMonth.plusMonths(1).atDay(1).atStartOfDay())
@@ -220,16 +228,18 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
 
         // Also refresh from server for the new month
-        val targetFrom = DateUtils.toRfc3339(targetMonth.atDay(1).atStartOfDay())
-        val targetTo = DateUtils.toRfc3339(targetMonth.plusMonths(1).atDay(1).atStartOfDay())
+        if (_uiState.value.isOnline) {
+            val targetFrom = DateUtils.toRfc3339(targetMonth.atDay(1).atStartOfDay())
+            val targetTo = DateUtils.toRfc3339(targetMonth.plusMonths(1).atDay(1).atStartOfDay())
 
-        viewModelScope.launch {
-            try {
-                repository.refreshEvents(targetFrom, targetTo)
-            } catch (_: Exception) {
-                // Silently fail — local data will still be shown
+            viewModelScope.launch {
+                try {
+                    repository.refreshEvents(targetFrom, targetTo)
+                } catch (_: Exception) {
+                    // Silently fail — local data will still be shown
+                }
+                _uiState.update { it.copy(isLoadingMore = false) }
             }
-            _uiState.update { it.copy(isLoadingMore = false) }
         }
     }
 
