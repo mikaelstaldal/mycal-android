@@ -8,6 +8,7 @@ import nu.staldal.mycal.data.local.AppDatabase
 import nu.staldal.mycal.data.local.ChangeType
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.notification.NotificationScheduler
+import nu.staldal.mycal.widget.ScheduleWidget
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +41,7 @@ class SyncWorker(
             }
 
             NotificationScheduler.rescheduleAllNotifications(applicationContext, database)
+            ScheduleWidget.notifyDataChanged(applicationContext)
             Result.success()
         } catch (_: Exception) {
             Result.retry()
