@@ -114,19 +114,28 @@ private fun ScheduleEventRow(
     val today = LocalDate.now()
     val isToday = date == today
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = if (isLastInDay) 8.dp else 0.dp),
-        verticalAlignment = Alignment.Top,
     ) {
-        // Date column
-        Box(
-            modifier = Modifier.width(DATE_COLUMN_WIDTH_DP.dp).padding(top = 4.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (showDate) {
+        // Event card — measured normally, determines the row height
+        ScheduleEventItem(
+            event = event,
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = DATE_COLUMN_WIDTH_DP.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
+        )
+
+        // Date column — uses matchParentSize so it doesn't expand the row
+        if (showDate) {
+            Box(
+                modifier = Modifier.matchParentSize(),
+                contentAlignment = Alignment.TopStart,
+            ) {
                 Column(
+                    modifier = Modifier.width(DATE_COLUMN_WIDTH_DP.dp).padding(top = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -156,13 +165,6 @@ private fun ScheduleEventRow(
                 }
             }
         }
-
-        // Event card
-        ScheduleEventItem(
-            event = event,
-            onClick = onClick,
-            modifier = Modifier.weight(1f).padding(end = 16.dp, top = 2.dp, bottom = 2.dp),
-        )
     }
 }
 

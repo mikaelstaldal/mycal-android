@@ -25,19 +25,19 @@
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="4dp">
+        android:paddingTop="2dp">
 
         <TextView
             android:id="@+id/item_day_of_week"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#88FFFFFF"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
 
         <FrameLayout
             android:id="@+id/item_today_circle"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:visibility="gone">
 
             <ImageView
@@ -52,7 +52,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:textColor="#FFFFFFFF"
-                android:textSize="18sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
         </FrameLayout>
@@ -62,7 +62,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#FFFFFFFF"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
     </LinearLayout>
