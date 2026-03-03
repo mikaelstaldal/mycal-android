@@ -88,6 +88,7 @@ class ScheduleWidget : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.widget_list, itemClickPi)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
         }
     }
 }
