@@ -180,8 +180,33 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         _locationSuggestions.value = emptyList()
     }
     fun clearLocationSuggestions() { _locationSuggestions.value = emptyList() }
-    fun updateStartDate(value: String) { _formState.update { it.copy(startDate = value) } }
-    fun updateStartTime(value: String) { _formState.update { it.copy(startTime = value) } }
+    fun updateStartDate(value: String) {
+        _formState.update {
+            if (it.endDate.isNotEmpty() && value > it.endDate) {
+                it.copy(startDate = value, endDate = value)
+            } else {
+                it.copy(startDate = value)
+            }
+        }
+    }
+    fun updateStartTime(value: String) {
+        _formState.update {
+            if (it.startDate == it.endDate && it.endTime.isNotEmpty() && value >= it.endTime) {
+                val startTime = java.time.LocalTime.parse(value)
+                val newEnd = startTime.plusHours(1)
+                val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                if (newEnd <= startTime) {
+                    // Wrapped past midnight, bump end date to next day
+                    val nextDay = java.time.LocalDate.parse(it.startDate).plusDays(1)
+                    it.copy(startTime = value, endTime = newEnd.format(fmt), endDate = nextDay.toString())
+                } else {
+                    it.copy(startTime = value, endTime = newEnd.format(fmt))
+                }
+            } else {
+                it.copy(startTime = value)
+            }
+        }
+    }
     fun updateEndDate(value: String) { _formState.update { it.copy(endDate = value) } }
     fun updateEndTime(value: String) { _formState.update { it.copy(endTime = value) } }
     fun updateAllDay(value: Boolean) { _formState.update { it.copy(allDay = value) } }
