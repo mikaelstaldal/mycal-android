@@ -37,6 +37,7 @@ fun ScheduleContent(
     state: CalendarUiState,
     onEventClick: (String) -> Unit,
     onLoadMore: (Boolean) -> Unit,
+    scrollToTodayTrigger: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val dayItems = remember(state.scheduleEvents, state.scheduleStartMonth, state.scheduleEndMonth) {
@@ -44,6 +45,21 @@ fun ScheduleContent(
     }
 
     val listState = rememberLazyListState()
+
+    // Scroll to today when triggered
+    LaunchedEffect(scrollToTodayTrigger) {
+        if (scrollToTodayTrigger > 0) {
+            val today = LocalDate.now()
+            val todayIndex = dayItems.indexOfFirst { it.date >= today }
+            if (todayIndex >= 0) {
+                // Calculate the flat item index (sum of events in earlier days)
+                val flatIndex = dayItems.take(todayIndex).sumOf { it.events.size }
+                listState.scrollToItem(flatIndex)
+            } else {
+                listState.scrollToItem(0)
+            }
+        }
+    }
 
     // Auto-load more when near edges
     val shouldLoadNext by remember {

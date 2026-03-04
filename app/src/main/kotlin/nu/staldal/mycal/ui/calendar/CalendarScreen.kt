@@ -93,6 +93,9 @@ fun CalendarScreen(
                                 Icon(Icons.AutoMirrored.Default.ViewList, contentDescription = "Schedule view")
                             }
                         }
+                        IconButton(onClick = { viewModel.jumpToToday() }) {
+                            Icon(Icons.Default.Today, contentDescription = "Jump to today")
+                        }
                         IconButton(onClick = { showSearch = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
@@ -155,6 +158,7 @@ fun CalendarScreen(
                         state = state,
                         onEventClick = onNavigateToEvent,
                         onLoadMore = { loadNext -> viewModel.loadMoreScheduleEvents(loadNext) },
+                        scrollToTodayTrigger = state.scrollToTodayTrigger,
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxSize()) {

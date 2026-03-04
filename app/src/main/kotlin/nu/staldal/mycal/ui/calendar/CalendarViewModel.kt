@@ -39,6 +39,7 @@ data class CalendarUiState(
     val isOnline: Boolean = true,
     val pendingChangesCount: Int = 0,
     val isOfflineMode: Boolean = false,
+    val scrollToTodayTrigger: Int = 0,
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -122,6 +123,19 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     fun setViewMode(mode: ViewMode) {
         _uiState.update { it.copy(viewMode = mode) }
+    }
+
+    fun jumpToToday() {
+        if (_uiState.value.viewMode == ViewMode.SCHEDULE) {
+            _uiState.update { it.copy(scrollToTodayTrigger = it.scrollToTodayTrigger + 1) }
+            collectScheduleEvents()
+            refreshScheduleEvents()
+        } else {
+            val today = LocalDate.now()
+            _uiState.update { it.copy(currentMonth = YearMonth.from(today), selectedDate = today) }
+            collectMonthEvents()
+            refreshEvents()
+        }
     }
 
     fun refresh() {
