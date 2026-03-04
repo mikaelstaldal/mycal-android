@@ -22,6 +22,7 @@ data class EventDetailState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isDeleted: Boolean = false,
+    val defaultEventColor: String = "dodgerblue",
 )
 
 data class EventFormState(
@@ -70,6 +71,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationQuery = MutableStateFlow("")
 
     init {
+        viewModelScope.launch {
+            prefs.defaultEventColor.collect { color ->
+                _detailState.update { it.copy(defaultEventColor = color) }
+            }
+        }
+
         @OptIn(FlowPreview::class)
         viewModelScope.launch {
             _locationQuery

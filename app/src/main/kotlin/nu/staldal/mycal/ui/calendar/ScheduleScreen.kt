@@ -112,6 +112,7 @@ fun ScheduleContent(
                         showDate = index == 0,
                         isLastInDay = index == eventCount - 1,
                         onClick = { onEventClick(event.id) },
+                        defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
                     )
                 }
             }
@@ -126,6 +127,7 @@ private fun ScheduleEventRow(
     showDate: Boolean,
     isLastInDay: Boolean,
     onClick: () -> Unit,
+    defaultEventColor: Color = Color(0xFF1E90FF),
 ) {
     val today = LocalDate.now()
     val isToday = date == today
@@ -139,6 +141,7 @@ private fun ScheduleEventRow(
         ScheduleEventItem(
             event = event,
             onClick = onClick,
+            defaultEventColor = defaultEventColor,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = DATE_COLUMN_WIDTH_DP.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
@@ -188,10 +191,11 @@ private fun ScheduleEventRow(
 private fun ScheduleEventItem(
     event: EventDto,
     onClick: () -> Unit,
+    defaultEventColor: Color = Color(0xFF1E90FF),
     modifier: Modifier = Modifier,
 ) {
     val past = isEventPast(event)
-    val bgColor = cssColorToComposeColor(event.color).let {
+    val bgColor = cssColorToComposeColor(event.color, defaultEventColor).let {
         if (past) it.copy(alpha = 0.4f) else it
     }
     val contentColor = Color.White

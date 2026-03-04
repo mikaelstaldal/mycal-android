@@ -1,6 +1,10 @@
 package nu.staldal.mycal.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -8,9 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import nu.staldal.mycal.ui.event.EVENT_COLORS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,6 +104,41 @@ fun SettingsScreen(
                     color = if (result.startsWith("Connection")) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.error,
                 )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text("Default Event Color", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                EVENT_COLORS.filter { it.name.isNotEmpty() }.forEach { colorOpt ->
+                    val isSelected = state.defaultEventColor == colorOpt.name
+                    @OptIn(ExperimentalMaterial3Api::class)
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        tooltip = {
+                            PlainTooltip {
+                                Text(colorOpt.name)
+                            }
+                        },
+                        state = rememberTooltipState(),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(colorOpt.color)
+                                .then(
+                                    if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    else Modifier
+                                )
+                                .clickable { viewModel.updateDefaultEventColor(colorOpt.name) },
+                        )
+                    }
+                }
             }
         }
     }

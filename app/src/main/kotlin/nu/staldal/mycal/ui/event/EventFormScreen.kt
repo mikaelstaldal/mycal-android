@@ -230,17 +230,28 @@ fun EventFormScreen(
             ) {
                 EVENT_COLORS.forEach { colorOpt ->
                     val isSelected = state.color == colorOpt.name
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(colorOpt.color)
-                            .then(
-                                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                else Modifier
-                            )
-                            .clickable { viewModel.updateColor(colorOpt.name) },
-                    )
+                    val tooltipState = rememberTooltipState()
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        tooltip = {
+                            PlainTooltip {
+                                Text(colorOpt.name.ifEmpty { "default" })
+                            }
+                        },
+                        state = tooltipState,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(colorOpt.color)
+                                .then(
+                                    if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    else Modifier
+                                )
+                                .clickable { viewModel.updateColor(colorOpt.name) },
+                        )
+                    }
                 }
             }
 

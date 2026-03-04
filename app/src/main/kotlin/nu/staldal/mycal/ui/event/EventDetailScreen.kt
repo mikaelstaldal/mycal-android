@@ -115,7 +115,7 @@ fun EventDetailScreen(
                             modifier = Modifier
                                 .size(16.dp)
                                 .clip(CircleShape)
-                                .background(cssColorToComposeColor(event.color)),
+                                .background(cssColorToComposeColor(event.color, cssColorToComposeColor(state.defaultEventColor))),
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(event.title, style = MaterialTheme.typography.headlineSmall)

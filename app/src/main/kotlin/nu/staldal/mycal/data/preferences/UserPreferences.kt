@@ -23,6 +23,7 @@ class UserPreferences(private val context: Context) {
         val USERNAME = stringPreferencesKey("username")
         val PASSWORD = stringPreferencesKey("password")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
+        val DEFAULT_EVENT_COLOR = stringPreferencesKey("default_event_color")
     }
 
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { prefs ->
@@ -46,6 +47,16 @@ class UserPreferences(private val context: Context) {
     suspend fun saveOfflineMode(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[OFFLINE_MODE] = enabled
+        }
+    }
+
+    val defaultEventColor: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[DEFAULT_EVENT_COLOR] ?: "dodgerblue"
+    }
+
+    suspend fun saveDefaultEventColor(color: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DEFAULT_EVENT_COLOR] = color
         }
     }
 }

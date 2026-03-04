@@ -151,6 +151,7 @@ fun CalendarScreen(
                     results = state.searchResults,
                     isSearching = state.isSearching,
                     onEventClick = onNavigateToEvent,
+                    defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
                 )
             } else {
                 if (state.viewMode == ViewMode.SCHEDULE) {
@@ -172,12 +173,14 @@ fun CalendarScreen(
                             selectedDate = state.selectedDate,
                             events = state.events,
                             onDateSelected = { viewModel.selectDate(it) },
+                            defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
                         )
                         HorizontalDivider()
                         DayEventList(
                                 date = state.selectedDate,
                                 events = state.selectedDayEvents,
                                 onEventClick = onNavigateToEvent,
+                                defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -229,6 +232,7 @@ private fun SearchResults(
     results: List<EventDto>,
     isSearching: Boolean,
     onEventClick: (String) -> Unit,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     modifier: Modifier = Modifier,
 ) {
     if (isSearching) {
@@ -242,7 +246,7 @@ private fun SearchResults(
     } else {
         LazyColumn(modifier = modifier.fillMaxSize()) {
             items(results) { event ->
-                EventListItem(event = event, onClick = { onEventClick(event.id) })
+                EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor)
             }
         }
     }
@@ -280,6 +284,7 @@ private fun CalendarGrid(
     selectedDate: LocalDate,
     events: List<EventDto>,
     onDateSelected: (LocalDate) -> Unit,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
 ) {
     val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val firstDayOfMonth = month.atDay(1)
@@ -331,6 +336,7 @@ private fun CalendarGrid(
                             hasEvents = hasEvents,
                             eventColor = colors.firstOrNull { it.isNotBlank() },
                             onClick = { onDateSelected(date) },
+                            defaultEventColor = defaultEventColor,
                             modifier = Modifier.weight(1f),
                         )
                     } else {
@@ -350,6 +356,7 @@ private fun DayCell(
     hasEvents: Boolean,
     eventColor: String?,
     onClick: () -> Unit,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     modifier: Modifier = Modifier,
 ) {
     val bgColor = when {
@@ -384,7 +391,7 @@ private fun DayCell(
                 modifier = Modifier
                     .size(5.dp)
                     .clip(CircleShape)
-                    .background(cssColorToComposeColor(eventColor)),
+                    .background(cssColorToComposeColor(eventColor, defaultEventColor)),
             )
         }
     }
@@ -395,6 +402,7 @@ private fun DayEventList(
     date: LocalDate,
     events: List<EventDto>,
     onEventClick: (String) -> Unit,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -413,7 +421,7 @@ private fun DayEventList(
         } else {
             LazyColumn {
                 items(events) { event ->
-                    EventListItem(event = event, onClick = { onEventClick(event.id) })
+                    EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor)
                 }
             }
         }
@@ -430,9 +438,10 @@ fun isEventPast(event: EventDto): Boolean {
 fun EventListItem(
     event: EventDto,
     onClick: () -> Unit,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
 ) {
     val past = isEventPast(event)
-    val bgColor = cssColorToComposeColor(event.color).let {
+    val bgColor = cssColorToComposeColor(event.color, defaultEventColor).let {
         if (past) it.copy(alpha = 0.4f) else it
     }
     val contentColor = Color.White
@@ -467,9 +476,9 @@ fun EventListItem(
     }
 }
 
-val DEFAULT_EVENT_COLOR = Color(0xFF1E90FF) // dodgerblue
+private val FALLBACK_EVENT_COLOR = Color(0xFF1E90FF) // dodgerblue
 
-fun cssColorToComposeColor(name: String?): Color {
+fun cssColorToComposeColor(name: String?, defaultColor: Color = FALLBACK_EVENT_COLOR): Color {
     return when (name?.lowercase()) {
         "dodgerblue" -> Color(0xFF1E90FF)
         "red" -> Color(0xFFFF0000)
@@ -479,6 +488,6 @@ fun cssColorToComposeColor(name: String?): Color {
         "mediumturquoise" -> Color(0xFF48D1CC)
         "cornflowerblue" -> Color(0xFF6495ED)
         "salmon" -> Color(0xFFFA8072)
-        else -> DEFAULT_EVENT_COLOR
+        else -> defaultColor
     }
 }

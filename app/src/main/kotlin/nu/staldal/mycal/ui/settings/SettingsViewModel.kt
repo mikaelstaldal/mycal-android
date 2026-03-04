@@ -15,6 +15,7 @@ data class SettingsUiState(
     val password: String = "",
     val testResult: String? = null,
     val isTesting: Boolean = false,
+    val defaultEventColor: String = "dodgerblue",
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,6 +31,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
             }
         }
+        viewModelScope.launch {
+            prefs.defaultEventColor.first().let { color ->
+                _uiState.update { it.copy(defaultEventColor = color) }
+            }
+        }
     }
 
     fun updateBaseUrl(url: String) {
@@ -42,6 +48,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun updatePassword(password: String) {
         _uiState.update { it.copy(password = password) }
+    }
+
+    fun updateDefaultEventColor(color: String) {
+        _uiState.update { it.copy(defaultEventColor = color) }
+        viewModelScope.launch {
+            prefs.saveDefaultEventColor(color)
+        }
     }
 
     fun save(onSaved: () -> Unit) {

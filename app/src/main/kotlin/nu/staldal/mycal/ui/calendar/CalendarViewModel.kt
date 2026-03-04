@@ -40,6 +40,7 @@ data class CalendarUiState(
     val pendingChangesCount: Int = 0,
     val isOfflineMode: Boolean = false,
     val scrollToTodayTrigger: Int = 0,
+    val defaultEventColor: String = "dodgerblue",
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,6 +72,12 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             repository.getPendingChangeCount().collect { count ->
                 _uiState.update { it.copy(pendingChangesCount = count) }
+            }
+        }
+
+        viewModelScope.launch {
+            prefs.defaultEventColor.collect { color ->
+                _uiState.update { it.copy(defaultEventColor = color) }
             }
         }
 
