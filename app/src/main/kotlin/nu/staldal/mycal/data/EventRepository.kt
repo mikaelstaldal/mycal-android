@@ -1,5 +1,6 @@
 package nu.staldal.mycal.data
 
+import android.util.Log
 import nu.staldal.mycal.data.api.ApiService
 import nu.staldal.mycal.data.api.CreateEventRequest
 import nu.staldal.mycal.data.api.EventDto
@@ -8,8 +9,10 @@ import nu.staldal.mycal.data.local.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+const val LOGTAG = "EventRepository"
+
 class EventRepository(
-    private val database: AppDatabase,
+    database: AppDatabase,
     private val apiProvider: () -> ApiService?,
 ) {
     private val eventDao = database.eventDao()
@@ -79,7 +82,7 @@ class EventRepository(
             reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
         )
         eventDao.upsertEvent(updated)
-        // If this is a local-only event (negative ID), the CREATE change will push latest state
+        // If this is a local-only event (negative ID), the CREATE change will push the latest state
         if (id > 0) {
             pendingChangeDao.insert(PendingChange(eventId = id, changeType = ChangeType.UPDATE))
         }
@@ -101,6 +104,8 @@ class EventRepository(
         val api = apiProvider() ?: return
         val changes = pendingChangeDao.getAllChanges()
 
+        Log.i(LOGTAG, "Syncing changes to backend")
+
         for (change in changes) {
             try {
                 when (change.changeType) {
@@ -113,9 +118,11 @@ class EventRepository(
                                 eventDao.deleteEvent(change.eventId)
                                 eventDao.upsertEvent(serverEvent.toEntity())
                                 pendingChangeDao.delete(change)
+                            } else {
+                                Log.w(LOGTAG,"Unable to create event on backend: ${response.code()} ${response.message()}")
                             }
                         } else {
-                            // Entity was deleted locally, remove the pending create
+                            // Entity was deleted locally, remove the pending create operation
                             pendingChangeDao.delete(change)
                         }
                     }
@@ -131,6 +138,8 @@ class EventRepository(
                                 // Server-wins: event deleted on server
                                 eventDao.deleteEvent(change.eventId)
                                 pendingChangeDao.delete(change)
+                            } else {
+                                Log.w(LOGTAG,"Unable to update event on backend: ${response.code()} ${response.message()}")
                             }
                         } else {
                             pendingChangeDao.delete(change)
@@ -140,11 +149,14 @@ class EventRepository(
                         val response = api.deleteEvent(change.eventId)
                         if (response.isSuccessful || response.code() == 404) {
                             pendingChangeDao.delete(change)
+                        } else {
+                            Log.w(LOGTAG,"Unable to delete event on backend: ${response.code()} ${response.message()}")
                         }
                     }
                 }
-            } catch (_: Exception) {
-                // Network error — stop processing, will retry later
+            } catch (e: Exception) {
+                Log.i(LOGTAG, "Network error while syncing change to backend: $e")
+                // Network error — stop processing will retry later
                 return
             }
         }
