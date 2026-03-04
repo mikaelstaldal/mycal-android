@@ -28,7 +28,7 @@ class EventRepository(
         return eventDao.searchEvents(query).map { it.toDto() }
     }
 
-    suspend fun getEvent(id: Long): EventDto? {
+    suspend fun getEvent(id: String): EventDto? {
         return eventDao.getEventById(id)?.toDto()
     }
 
@@ -49,12 +49,12 @@ class EventRepository(
         }
     }
 
-    suspend fun createEvent(request: CreateEventRequest): Long {
-        val minId = eventDao.getMinId() ?: 0
+    suspend fun createEvent(request: CreateEventRequest): String {
+        val minId = eventDao.getMinTempId() ?: 0
         val tempId = if (minId >= 0) -1 else minId - 1
 
         val entity = EventEntity(
-            id = tempId,
+            id = tempId.toString(),
             title = request.title,
             description = request.description,
             startTime = request.startTime,
@@ -63,13 +63,20 @@ class EventRepository(
             color = request.color,
             location = request.location,
             reminderMinutes = request.reminderMinutes,
+            recurrenceFreq = request.recurrenceFreq ?: "",
+            recurrenceCount = request.recurrenceCount,
+            recurrenceUntil = request.recurrenceUntil,
+            recurrenceInterval = request.recurrenceInterval,
+            recurrenceByDay = request.recurrenceByDay,
+            recurrenceByMonthday = request.recurrenceByMonthday,
+            recurrenceByMonth = request.recurrenceByMonth,
         )
         eventDao.upsertEvent(entity)
-        pendingChangeDao.insert(PendingChange(eventId = tempId, changeType = ChangeType.CREATE))
-        return tempId
+        pendingChangeDao.insert(PendingChange(eventId = tempId.toString(), changeType = ChangeType.CREATE))
+        return tempId.toString()
     }
 
-    suspend fun updateEvent(id: Long, request: UpdateEventRequest) {
+    suspend fun updateEvent(id: String, request: UpdateEventRequest) {
         val existing = eventDao.getEventById(id) ?: return
         val updated = existing.copy(
             title = request.title ?: existing.title,
@@ -80,17 +87,24 @@ class EventRepository(
             color = request.color ?: existing.color,
             location = request.location ?: existing.location,
             reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
+            recurrenceFreq = request.recurrenceFreq ?: existing.recurrenceFreq,
+            recurrenceCount = request.recurrenceCount ?: existing.recurrenceCount,
+            recurrenceUntil = request.recurrenceUntil ?: existing.recurrenceUntil,
+            recurrenceInterval = request.recurrenceInterval ?: existing.recurrenceInterval,
+            recurrenceByDay = request.recurrenceByDay ?: existing.recurrenceByDay,
+            recurrenceByMonthday = request.recurrenceByMonthday ?: existing.recurrenceByMonthday,
+            recurrenceByMonth = request.recurrenceByMonth ?: existing.recurrenceByMonth,
         )
         eventDao.upsertEvent(updated)
         // If this is a local-only event (negative ID), the CREATE change will push the latest state
-        if (id > 0) {
+        if (!id.startsWith("-")) {
             pendingChangeDao.insert(PendingChange(eventId = id, changeType = ChangeType.UPDATE))
         }
     }
 
-    suspend fun deleteEvent(id: Long) {
+    suspend fun deleteEvent(id: String) {
         eventDao.deleteEvent(id)
-        if (id < 0) {
+        if (id.startsWith("-")) {
             // Never synced — just remove pending CREATE
             pendingChangeDao.deleteByEventId(id)
         } else {

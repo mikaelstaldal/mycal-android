@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         val openSchedule = intent?.action == ScheduleWidget.ACTION_OPEN_SCHEDULE
         val openNewEvent = intent?.action == ScheduleWidget.ACTION_NEW_EVENT
         val viewEventId = if (intent?.action == ScheduleWidget.ACTION_VIEW_EVENT) {
-            intent.getLongExtra(ScheduleWidget.EXTRA_EVENT_ID, -1L).takeIf { it >= 0 }
+            intent.getStringExtra(ScheduleWidget.EXTRA_EVENT_ID)
         } else null
 
         setContent {

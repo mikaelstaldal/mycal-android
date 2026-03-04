@@ -41,6 +41,17 @@ data class EventFormState(
     val error: String? = null,
     val isSaved: Boolean = false,
     val isLoading: Boolean = false,
+    // Recurrence fields
+    val recurrenceFreq: String = "",
+    val recurrenceInterval: Int = 1,
+    val recurrenceCount: Int? = null,
+    val recurrenceUntil: String? = null,
+    val recurrenceByDay: String? = null,
+    val recurrenceByMonthday: String? = null,
+    val recurrenceByMonth: String? = null,
+    // Recurring instance info
+    val parentId: String? = null,
+    val isRecurringInstance: Boolean = false,
 )
 
 class EventViewModel(application: Application) : AndroidViewModel(application) {
@@ -96,7 +107,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         return repository
     }
 
-    fun loadEvent(id: Long) {
+    fun loadEvent(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
             _detailState.update { it.copy(isLoading = true, error = null) }
@@ -113,7 +124,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteEvent(id: Long) {
+    fun deleteEvent(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
             _detailState.update { it.copy(isLoading = true) }
@@ -128,7 +139,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadEventForEdit(id: Long) {
+    fun loadEventForEdit(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
             _formState.update { it.copy(isLoading = true) }
@@ -152,6 +163,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             latitude = event.latitude,
                             longitude = event.longitude,
                             isLoading = false,
+                            recurrenceFreq = event.recurrenceFreq,
+                            recurrenceInterval = event.recurrenceInterval ?: 1,
+                            recurrenceCount = event.recurrenceCount,
+                            recurrenceUntil = event.recurrenceUntil,
+                            recurrenceByDay = event.recurrenceByDay,
+                            recurrenceByMonthday = event.recurrenceByMonthday,
+                            recurrenceByMonth = event.recurrenceByMonth,
+                            parentId = event.parentId,
+                            isRecurringInstance = event.parentId != null,
                         )
                     }
                 } else {
@@ -212,6 +232,19 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun updateAllDay(value: Boolean) { _formState.update { it.copy(allDay = value) } }
     fun updateColor(value: String) { _formState.update { it.copy(color = value) } }
     fun updateReminderMinutes(value: Int) { _formState.update { it.copy(reminderMinutes = value) } }
+    fun updateRecurrenceFreq(value: String) {
+        _formState.update {
+            if (value.isBlank()) {
+                it.copy(recurrenceFreq = "", recurrenceInterval = 1, recurrenceCount = null, recurrenceUntil = null, recurrenceByDay = null)
+            } else {
+                it.copy(recurrenceFreq = value)
+            }
+        }
+    }
+    fun updateRecurrenceInterval(value: Int) { _formState.update { it.copy(recurrenceInterval = value) } }
+    fun updateRecurrenceCount(value: Int?) { _formState.update { it.copy(recurrenceCount = value, recurrenceUntil = null) } }
+    fun updateRecurrenceUntil(value: String?) { _formState.update { it.copy(recurrenceUntil = value, recurrenceCount = null) } }
+    fun updateRecurrenceByDay(value: String?) { _formState.update { it.copy(recurrenceByDay = value) } }
 
     fun createEvent() {
         val form = _formState.value
@@ -233,6 +266,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     reminderMinutes = form.reminderMinutes,
                     latitude = form.latitude,
                     longitude = form.longitude,
+                    recurrenceFreq = form.recurrenceFreq.ifBlank { null },
+                    recurrenceCount = form.recurrenceCount,
+                    recurrenceUntil = form.recurrenceUntil,
+                    recurrenceInterval = if (form.recurrenceFreq.isNotBlank() && form.recurrenceInterval > 1) form.recurrenceInterval else null,
+                    recurrenceByDay = form.recurrenceByDay,
+                    recurrenceByMonthday = form.recurrenceByMonthday,
+                    recurrenceByMonth = form.recurrenceByMonth,
                 )
                 val eventId = repo.createEvent(request)
                 scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
@@ -245,7 +285,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateEvent(id: Long) {
+    fun updateEvent(id: String) {
         val form = _formState.value
 
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
@@ -265,6 +305,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     reminderMinutes = form.reminderMinutes,
                     latitude = form.latitude,
                     longitude = form.longitude,
+                    recurrenceFreq = if (!form.isRecurringInstance) form.recurrenceFreq.ifBlank { null } else null,
+                    recurrenceCount = if (!form.isRecurringInstance) form.recurrenceCount else null,
+                    recurrenceUntil = if (!form.isRecurringInstance) form.recurrenceUntil else null,
+                    recurrenceInterval = if (!form.isRecurringInstance && form.recurrenceFreq.isNotBlank() && form.recurrenceInterval > 1) form.recurrenceInterval else null,
+                    recurrenceByDay = if (!form.isRecurringInstance) form.recurrenceByDay else null,
+                    recurrenceByMonthday = if (!form.isRecurringInstance) form.recurrenceByMonthday else null,
+                    recurrenceByMonth = if (!form.isRecurringInstance) form.recurrenceByMonth else null,
                 )
                 repo.updateEvent(id, request)
                 scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)
@@ -277,7 +324,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun scheduleReminderIfNeeded(eventId: Long, title: String, startTimeStr: String, reminderMinutes: Int) {
+    private fun scheduleReminderIfNeeded(eventId: String, title: String, startTimeStr: String, reminderMinutes: Int) {
         val context = getApplication<Application>()
         if (reminderMinutes > 0) {
             val ldt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr) ?: return

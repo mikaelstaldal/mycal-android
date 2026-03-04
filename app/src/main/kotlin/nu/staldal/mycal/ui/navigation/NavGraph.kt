@@ -11,12 +11,14 @@ import nu.staldal.mycal.ui.calendar.CalendarScreen
 import nu.staldal.mycal.ui.event.EventDetailScreen
 import nu.staldal.mycal.ui.event.EventFormScreen
 import nu.staldal.mycal.ui.settings.SettingsScreen
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 @Composable
 fun NavGraph(
     forceScheduleView: Boolean = false,
     openNewEvent: Boolean = false,
-    viewEventId: Long? = null,
+    viewEventId: String? = null,
 ) {
     val navController = rememberNavController()
 
@@ -28,7 +30,8 @@ fun NavGraph(
 
     LaunchedEffect(viewEventId) {
         if (viewEventId != null) {
-            navController.navigate("event/$viewEventId")
+            val encoded = URLEncoder.encode(viewEventId, "UTF-8")
+            navController.navigate("event/$encoded")
         }
     }
 
@@ -36,7 +39,10 @@ fun NavGraph(
         composable("calendar") {
             CalendarScreen(
                 onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToEvent = { id -> navController.navigate("event/$id") },
+                onNavigateToEvent = { id ->
+                    val encoded = URLEncoder.encode(id, "UTF-8")
+                    navController.navigate("event/$encoded")
+                },
                 onNavigateToNewEvent = { navController.navigate("event/new") },
                 forceScheduleView = forceScheduleView,
             )
@@ -44,13 +50,17 @@ fun NavGraph(
 
         composable(
             "event/{id}",
-            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val eventId = backStackEntry.arguments?.getLong("id") ?: return@composable
+            val rawId = backStackEntry.arguments?.getString("id") ?: return@composable
+            val eventId = URLDecoder.decode(rawId, "UTF-8")
             EventDetailScreen(
                 eventId = eventId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToEdit = { id -> navController.navigate("event/edit/$id") },
+                onNavigateToEdit = { id ->
+                    val encoded = URLEncoder.encode(id, "UTF-8")
+                    navController.navigate("event/edit/$encoded")
+                },
             )
         }
 
@@ -65,9 +75,10 @@ fun NavGraph(
 
         composable(
             "event/edit/{id}",
-            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val eventId = backStackEntry.arguments?.getLong("id") ?: return@composable
+            val rawId = backStackEntry.arguments?.getString("id") ?: return@composable
+            val eventId = URLDecoder.decode(rawId, "UTF-8")
             EventFormScreen(
                 eventId = eventId,
                 onNavigateBack = {

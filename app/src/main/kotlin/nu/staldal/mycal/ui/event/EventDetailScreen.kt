@@ -30,18 +30,21 @@ import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(
-    eventId: Long,
+    eventId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToEdit: (Long) -> Unit,
+    onNavigateToEdit: (String) -> Unit,
     viewModel: EventViewModel = viewModel(),
 ) {
     val state by viewModel.detailState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditSeriesDialog by remember { mutableStateOf(false) }
+    var showDeleteSeriesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventId) {
         viewModel.loadEvent(eventId)
@@ -61,10 +64,24 @@ fun EventDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onNavigateToEdit(eventId) }) {
+                    IconButton(onClick = {
+                        val event = state.event
+                        if (event?.parentId != null) {
+                            showEditSeriesDialog = true
+                        } else {
+                            onNavigateToEdit(eventId)
+                        }
+                    }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
-                    IconButton(onClick = { showDeleteDialog = true }) {
+                    IconButton(onClick = {
+                        val event = state.event
+                        if (event?.parentId != null) {
+                            showDeleteSeriesDialog = true
+                        } else {
+                            showDeleteDialog = true
+                        }
+                    }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 },
@@ -164,13 +181,22 @@ fun EventDetailScreen(
                     }
 
                     if (event.recurrenceFreq.isNotBlank()) {
-                        DetailRow("Recurrence", event.recurrenceFreq.lowercase().replaceFirstChar { it.uppercase() })
+                        DetailRow("Recurrence", formatRecurrenceInfo(event))
+                    }
+
+                    if (event.parentId != null) {
+                        Text(
+                            "Part of recurring series",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
         }
     }
 
+    // Simple delete dialog (non-recurring events or parent events)
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -191,6 +217,72 @@ fun EventDetailScreen(
             },
         )
     }
+
+    // Edit series dialog (recurring instances)
+    if (showEditSeriesDialog) {
+        val parentId = state.event?.parentId
+        AlertDialog(
+            onDismissRequest = { showEditSeriesDialog = false },
+            title = { Text("Edit Recurring Event") },
+            text = { Text("Do you want to edit this event or all events in the series?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditSeriesDialog = false
+                    onNavigateToEdit(eventId)
+                }) {
+                    Text("This event")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { showEditSeriesDialog = false }) {
+                        Text("Cancel")
+                    }
+                    if (parentId != null) {
+                        TextButton(onClick = {
+                            showEditSeriesDialog = false
+                            onNavigateToEdit(parentId)
+                        }) {
+                            Text("All events")
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    // Delete series dialog (recurring instances)
+    if (showDeleteSeriesDialog) {
+        val parentId = state.event?.parentId
+        AlertDialog(
+            onDismissRequest = { showDeleteSeriesDialog = false },
+            title = { Text("Delete Recurring Event") },
+            text = { Text("Do you want to delete this event or all events in the series?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteSeriesDialog = false
+                    viewModel.deleteEvent(eventId)
+                }) {
+                    Text("This event", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { showDeleteSeriesDialog = false }) {
+                        Text("Cancel")
+                    }
+                    if (parentId != null) {
+                        TextButton(onClick = {
+                            showDeleteSeriesDialog = false
+                            viewModel.deleteEvent(parentId)
+                        }) {
+                            Text("All events", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -202,6 +294,33 @@ private fun DetailRow(label: String, value: String) {
         )
         Text(value)
     }
+}
+
+private fun formatRecurrenceInfo(event: EventDto): String {
+    val freq = event.recurrenceFreq.lowercase().replaceFirstChar { it.uppercase() }
+    val interval = event.recurrenceInterval
+    val base = if (interval != null && interval > 1) {
+        val unit = when (event.recurrenceFreq.lowercase()) {
+            "daily" -> "days"
+            "weekly" -> "weeks"
+            "monthly" -> "months"
+            "yearly" -> "years"
+            else -> event.recurrenceFreq.lowercase()
+        }
+        "Every $interval $unit"
+    } else {
+        freq
+    }
+
+    val end = when {
+        event.recurrenceCount != null -> ", ${event.recurrenceCount} times"
+        event.recurrenceUntil != null -> ", until ${event.recurrenceUntil}"
+        else -> ""
+    }
+
+    val days = if (event.recurrenceByDay != null) " on ${event.recurrenceByDay}" else ""
+
+    return "$base$days$end"
 }
 
 private fun htmlToAnnotatedString(html: String): AnnotatedString {

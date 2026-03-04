@@ -35,7 +35,7 @@ data class ScheduleDayItem(
 @Composable
 fun ScheduleContent(
     state: CalendarUiState,
-    onEventClick: (Long) -> Unit,
+    onEventClick: (String) -> Unit,
     onLoadMore: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {

@@ -27,7 +27,7 @@ object NotificationScheduler {
         manager.createNotificationChannel(channel)
     }
 
-    fun scheduleNotification(context: Context, eventId: Long, title: String, triggerTimeMillis: Long) {
+    fun scheduleNotification(context: Context, eventId: String, title: String, triggerTimeMillis: Long) {
         if (triggerTimeMillis <= System.currentTimeMillis()) return
 
         val intent = Intent(context, NotificationReceiver::class.java).apply {
@@ -36,7 +36,7 @@ object NotificationScheduler {
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            eventId.toInt(),
+            eventId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -57,11 +57,11 @@ object NotificationScheduler {
         }
     }
 
-    fun cancelNotification(context: Context, eventId: Long) {
+    fun cancelNotification(context: Context, eventId: String) {
         val intent = Intent(context, NotificationReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            eventId.toInt(),
+            eventId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

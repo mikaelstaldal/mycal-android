@@ -21,6 +21,18 @@ fun EventDto.toEntity(): EventEntity = EventEntity(
     longitude = longitude,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    parentId = parentId,
+    recurrenceCount = recurrenceCount,
+    recurrenceUntil = recurrenceUntil,
+    recurrenceInterval = recurrenceInterval,
+    recurrenceByDay = recurrenceByDay,
+    recurrenceByMonthday = recurrenceByMonthday,
+    recurrenceByMonth = recurrenceByMonth,
+    exdates = exdates,
+    rdates = rdates,
+    recurrenceParentId = recurrenceParentId,
+    recurrenceOriginalStart = recurrenceOriginalStart,
+    duration = duration,
 )
 
 fun EventEntity.toDto(): EventDto = EventDto(
@@ -40,6 +52,18 @@ fun EventEntity.toDto(): EventDto = EventDto(
     longitude = longitude,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    parentId = parentId,
+    recurrenceCount = recurrenceCount,
+    recurrenceUntil = recurrenceUntil,
+    recurrenceInterval = recurrenceInterval,
+    recurrenceByDay = recurrenceByDay,
+    recurrenceByMonthday = recurrenceByMonthday,
+    recurrenceByMonth = recurrenceByMonth,
+    exdates = exdates,
+    rdates = rdates,
+    recurrenceParentId = recurrenceParentId,
+    recurrenceOriginalStart = recurrenceOriginalStart,
+    duration = duration,
 )
 
 fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
@@ -51,6 +75,13 @@ fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     color = color,
     location = location,
     reminderMinutes = reminderMinutes,
+    recurrenceFreq = recurrenceFreq.ifBlank { null },
+    recurrenceCount = recurrenceCount,
+    recurrenceUntil = recurrenceUntil,
+    recurrenceInterval = recurrenceInterval,
+    recurrenceByDay = recurrenceByDay,
+    recurrenceByMonthday = recurrenceByMonthday,
+    recurrenceByMonth = recurrenceByMonth,
 )
 
 fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
@@ -62,4 +93,11 @@ fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     color = color,
     location = location,
     reminderMinutes = reminderMinutes,
+    recurrenceFreq = recurrenceFreq.ifBlank { null },
+    recurrenceCount = recurrenceCount,
+    recurrenceUntil = recurrenceUntil,
+    recurrenceInterval = recurrenceInterval,
+    recurrenceByDay = recurrenceByDay,
+    recurrenceByMonthday = recurrenceByMonthday,
+    recurrenceByMonth = recurrenceByMonth,
 )

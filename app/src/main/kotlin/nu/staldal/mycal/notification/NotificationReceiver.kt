@@ -11,7 +11,7 @@ import nu.staldal.mycal.R
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val eventId = intent.getLongExtra("event_id", -1)
+        val eventId = intent.getStringExtra("event_id") ?: return
         val eventTitle = intent.getStringExtra("event_title") ?: "Event"
 
         val tapIntent = Intent(context, MainActivity::class.java).apply {
@@ -20,7 +20,7 @@ class NotificationReceiver : BroadcastReceiver() {
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            eventId.toInt(),
+            eventId.hashCode(),
             tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -35,7 +35,7 @@ class NotificationReceiver : BroadcastReceiver() {
             .build()
 
         try {
-            NotificationManagerCompat.from(context).notify(eventId.toInt(), notification)
+            NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
         } catch (_: SecurityException) {
             // Notification permission not granted
         }

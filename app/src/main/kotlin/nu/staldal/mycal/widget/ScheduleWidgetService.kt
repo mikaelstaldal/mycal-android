@@ -107,7 +107,7 @@ private class ScheduleWidgetFactory(
 
     override fun getLoadingView(): RemoteViews? = null
     override fun getViewTypeCount(): Int = 1
-    override fun getItemId(position: Int): Long = events.getOrNull(position)?.id ?: position.toLong()
+    override fun getItemId(position: Int): Long = events.getOrNull(position)?.id?.hashCode()?.toLong() ?: position.toLong()
     override fun hasStableIds(): Boolean = true
     override fun onDestroy() {}
 }

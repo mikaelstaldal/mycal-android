@@ -10,7 +10,7 @@ enum class ChangeType {
 @Entity(tableName = "pending_changes")
 data class PendingChange(
     @PrimaryKey(autoGenerate = true) val changeId: Long = 0,
-    val eventId: Long,
+    val eventId: String,
     val changeType: ChangeType,
     val timestamp: Long = System.currentTimeMillis(),
 )

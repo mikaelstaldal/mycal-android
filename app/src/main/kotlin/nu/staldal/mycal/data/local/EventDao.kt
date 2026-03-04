@@ -15,7 +15,7 @@ interface EventDao {
     suspend fun searchEvents(query: String): List<EventEntity>
 
     @Query("SELECT * FROM events WHERE id = :id")
-    suspend fun getEventById(id: Long): EventEntity?
+    suspend fun getEventById(id: String): EventEntity?
 
     @Upsert
     suspend fun upsertEvents(events: List<EventEntity>)
@@ -24,13 +24,13 @@ interface EventDao {
     suspend fun upsertEvent(event: EventEntity)
 
     @Query("DELETE FROM events WHERE id = :id")
-    suspend fun deleteEvent(id: Long)
+    suspend fun deleteEvent(id: String)
 
-    @Query("DELETE FROM events WHERE id NOT IN (:keepIds) AND id > 0 AND startTime >= :from AND startTime < :to")
-    suspend fun deleteStaleEvents(keepIds: List<Long>, from: String, to: String)
+    @Query("DELETE FROM events WHERE id NOT IN (:keepIds) AND id NOT LIKE '-%' AND startTime >= :from AND startTime < :to")
+    suspend fun deleteStaleEvents(keepIds: List<String>, from: String, to: String)
 
-    @Query("SELECT MIN(id) FROM events")
-    suspend fun getMinId(): Long?
+    @Query("SELECT MIN(CAST(id AS INTEGER)) FROM events WHERE id GLOB '-*'")
+    suspend fun getMinTempId(): Long?
 
     @Query("SELECT * FROM events WHERE reminderMinutes > 0 AND startTime >= :from AND startTime < :to")
     suspend fun getEventsWithReminders(from: String, to: String): List<EventEntity>

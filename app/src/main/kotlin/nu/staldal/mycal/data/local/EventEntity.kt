@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "events")
 data class EventEntity(
-    @PrimaryKey val id: Long,
+    @PrimaryKey val id: String,
     val title: String = "",
     val description: String = "",
     val startTime: String = "",
@@ -21,4 +21,16 @@ data class EventEntity(
     val longitude: Double? = null,
     val createdAt: String = "",
     val updatedAt: String = "",
+    val parentId: String? = null,
+    val recurrenceCount: Int? = null,
+    val recurrenceUntil: String? = null,
+    val recurrenceInterval: Int? = null,
+    val recurrenceByDay: String? = null,
+    val recurrenceByMonthday: String? = null,
+    val recurrenceByMonth: String? = null,
+    val exdates: String? = null,
+    val rdates: String? = null,
+    val recurrenceParentId: String? = null,
+    val recurrenceOriginalStart: String? = null,
+    val duration: String? = null,
 )

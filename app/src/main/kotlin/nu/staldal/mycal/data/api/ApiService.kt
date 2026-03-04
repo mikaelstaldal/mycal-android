@@ -17,7 +17,7 @@ interface ApiService {
 
     @GET("api/v1/events/{id}")
     suspend fun getEvent(
-        @Path("id") id: Long,
+        @Path("id", encoded = true) id: String,
     ): Response<EventDto>
 
     @POST("api/v1/events")
@@ -27,12 +27,12 @@ interface ApiService {
 
     @PATCH("api/v1/events/{id}")
     suspend fun updateEvent(
-        @Path("id") id: Long,
+        @Path("id", encoded = true) id: String,
         @Body request: UpdateEventRequest,
     ): Response<EventDto>
 
     @DELETE("api/v1/events/{id}")
     suspend fun deleteEvent(
-        @Path("id") id: Long,
+        @Path("id", encoded = true) id: String,
     ): Response<Unit>
 }

@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import nu.staldal.mycal.notification.NotificationScheduler
@@ -45,10 +48,24 @@ val EVENT_COLORS = listOf(
     ColorOption("salmon", Color(0xFFFA8072)),
 )
 
+val RECURRENCE_FREQ_OPTIONS = listOf("", "DAILY", "WEEKLY", "MONTHLY", "YEARLY")
+
+data class WeekdayOption(val code: String, val label: String)
+
+val WEEKDAY_OPTIONS = listOf(
+    WeekdayOption("MO", "Mon"),
+    WeekdayOption("TU", "Tue"),
+    WeekdayOption("WE", "Wed"),
+    WeekdayOption("TH", "Thu"),
+    WeekdayOption("FR", "Fri"),
+    WeekdayOption("SA", "Sat"),
+    WeekdayOption("SU", "Sun"),
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventFormScreen(
-    eventId: Long?, // null for create, non-null for edit
+    eventId: String?, // null for create, non-null for edit
     onNavigateBack: () -> Unit,
     viewModel: EventViewModel = viewModel(),
 ) {
@@ -180,6 +197,22 @@ fun EventFormScreen(
                 onMinutesSelected = { viewModel.updateReminderMinutes(it) },
             )
 
+            // Recurrence picker — hide for recurring instance edits
+            if (!state.isRecurringInstance) {
+                RecurrencePicker(
+                    freq = state.recurrenceFreq,
+                    interval = state.recurrenceInterval,
+                    count = state.recurrenceCount,
+                    until = state.recurrenceUntil,
+                    byDay = state.recurrenceByDay,
+                    onFreqChanged = { viewModel.updateRecurrenceFreq(it) },
+                    onIntervalChanged = { viewModel.updateRecurrenceInterval(it) },
+                    onCountChanged = { viewModel.updateRecurrenceCount(it) },
+                    onUntilChanged = { viewModel.updateRecurrenceUntil(it) },
+                    onByDayChanged = { viewModel.updateRecurrenceByDay(it) },
+                )
+            }
+
             // Color picker
             Text("Color", style = MaterialTheme.typography.labelLarge)
             Row(
@@ -208,6 +241,175 @@ fun EventFormScreen(
 
             if (state.isSaving) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecurrencePicker(
+    freq: String,
+    interval: Int,
+    count: Int?,
+    until: String?,
+    byDay: String?,
+    onFreqChanged: (String) -> Unit,
+    onIntervalChanged: (Int) -> Unit,
+    onCountChanged: (Int?) -> Unit,
+    onUntilChanged: (String?) -> Unit,
+    onByDayChanged: (String?) -> Unit,
+) {
+    var freqExpanded by remember { mutableStateOf(false) }
+
+    // Frequency dropdown
+    ExposedDropdownMenuBox(
+        expanded = freqExpanded,
+        onExpandedChange = { freqExpanded = it },
+    ) {
+        OutlinedTextField(
+            value = when (freq.lowercase()) {
+                "daily" -> "Daily"
+                "weekly" -> "Weekly"
+                "monthly" -> "Monthly"
+                "yearly" -> "Yearly"
+                else -> "None"
+            },
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Repeat") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = freqExpanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(
+            expanded = freqExpanded,
+            onDismissRequest = { freqExpanded = false },
+        ) {
+            RECURRENCE_FREQ_OPTIONS.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(when (option) {
+                        "DAILY" -> "Daily"
+                        "WEEKLY" -> "Weekly"
+                        "MONTHLY" -> "Monthly"
+                        "YEARLY" -> "Yearly"
+                        else -> "None"
+                    }) },
+                    onClick = {
+                        onFreqChanged(option)
+                        freqExpanded = false
+                    },
+                )
+            }
+        }
+    }
+
+    // Show additional options when recurrence is set
+    if (freq.isNotBlank()) {
+        val unitLabel = when (freq.lowercase()) {
+            "daily" -> "days"
+            "weekly" -> "weeks"
+            "monthly" -> "months"
+            "yearly" -> "years"
+            else -> freq
+        }
+
+        // Interval
+        OutlinedTextField(
+            value = interval.toString(),
+            onValueChange = { text ->
+                val parsed = text.filter { it.isDigit() }.toIntOrNull()
+                if (parsed != null && parsed > 0) {
+                    onIntervalChanged(parsed)
+                }
+            },
+            label = { Text("Every N $unitLabel") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
+
+        // End condition
+        val endMode = when {
+            count != null -> "count"
+            until != null -> "until"
+            else -> "never"
+        }
+
+        Text("Ends", style = MaterialTheme.typography.labelLarge)
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = endMode == "never",
+                    onClick = { onCountChanged(null); onUntilChanged(null) },
+                )
+                Text("Never")
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = endMode == "count",
+                    onClick = { onCountChanged(count ?: 10) },
+                )
+                Text("After")
+                if (endMode == "count") {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = (count ?: 10).toString(),
+                        onValueChange = { text ->
+                            val parsed = text.filter { it.isDigit() }.toIntOrNull()
+                            if (parsed != null && parsed > 0) {
+                                onCountChanged(parsed)
+                            }
+                        },
+                        modifier = Modifier.width(80.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("occurrences")
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = endMode == "until",
+                    onClick = { onUntilChanged(until ?: LocalDate.now().plusMonths(3).toString()) },
+                )
+                Text("On date")
+                if (endMode == "until") {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    DatePickerField(
+                        value = until ?: "",
+                        label = "Until",
+                        onDateSelected = { onUntilChanged(it) },
+                    )
+                }
+            }
+        }
+
+        // Weekday selector (weekly only)
+        if (freq.lowercase() == "weekly") {
+            Text("On days", style = MaterialTheme.typography.labelLarge)
+            val selectedDays = byDay?.split(",")?.map { it.trim() }?.toSet() ?: emptySet()
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                WEEKDAY_OPTIONS.forEach { day ->
+                    val isSelected = day.code in selectedDays
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            val newDays = if (isSelected) {
+                                selectedDays - day.code
+                            } else {
+                                selectedDays + day.code
+                            }
+                            onByDayChanged(newDays.joinToString(",").ifBlank { null })
+                        },
+                        label = { Text(day.label) },
+                    )
+                }
             }
         }
     }

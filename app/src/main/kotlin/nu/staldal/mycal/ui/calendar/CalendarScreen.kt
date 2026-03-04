@@ -34,7 +34,7 @@ import java.util.Locale
 @Composable
 fun CalendarScreen(
     onNavigateToSettings: () -> Unit,
-    onNavigateToEvent: (Long) -> Unit,
+    onNavigateToEvent: (String) -> Unit,
     onNavigateToNewEvent: () -> Unit,
     forceScheduleView: Boolean = false,
     viewModel: CalendarViewModel = viewModel(),
@@ -223,7 +223,7 @@ private fun SearchBar(
 private fun SearchResults(
     results: List<EventDto>,
     isSearching: Boolean,
-    onEventClick: (Long) -> Unit,
+    onEventClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (isSearching) {
@@ -389,7 +389,7 @@ private fun DayCell(
 private fun DayEventList(
     date: LocalDate,
     events: List<EventDto>,
-    onEventClick: (Long) -> Unit,
+    onEventClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {

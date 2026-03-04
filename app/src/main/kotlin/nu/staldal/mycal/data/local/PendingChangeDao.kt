@@ -18,8 +18,8 @@ interface PendingChangeDao {
     suspend fun delete(change: PendingChange)
 
     @Query("DELETE FROM pending_changes WHERE eventId = :eventId")
-    suspend fun deleteByEventId(eventId: Long)
+    suspend fun deleteByEventId(eventId: String)
 
     @Query("DELETE FROM pending_changes WHERE eventId = :eventId AND changeType != 'DELETE'")
-    suspend fun deleteNonDeleteByEventId(eventId: Long)
+    suspend fun deleteNonDeleteByEventId(eventId: String)
 }
