@@ -26,6 +26,7 @@ import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
@@ -415,12 +416,21 @@ private fun DayEventList(
     }
 }
 
+fun isEventPast(event: EventDto): Boolean {
+    val now = LocalDateTime.now()
+    val endTime = DateUtils.parseToLocalDateTime(event.endTime)
+    return endTime != null && endTime.isBefore(now)
+}
+
 @Composable
 fun EventListItem(
     event: EventDto,
     onClick: () -> Unit,
 ) {
-    val bgColor = cssColorToComposeColor(event.color)
+    val past = isEventPast(event)
+    val bgColor = cssColorToComposeColor(event.color).let {
+        if (past) it.copy(alpha = 0.4f) else it
+    }
     val contentColor = Color.White
 
     Surface(

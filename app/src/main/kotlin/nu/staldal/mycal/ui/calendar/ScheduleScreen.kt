@@ -174,7 +174,10 @@ private fun ScheduleEventItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val bgColor = cssColorToComposeColor(event.color)
+    val past = isEventPast(event)
+    val bgColor = cssColorToComposeColor(event.color).let {
+        if (past) it.copy(alpha = 0.4f) else it
+    }
     val contentColor = Color.White
 
     Surface(

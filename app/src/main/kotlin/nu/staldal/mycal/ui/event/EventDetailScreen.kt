@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -174,6 +175,35 @@ fun EventDetailScreen(
                     if (event.description.isNotBlank()) {
                         Text("Description", style = MaterialTheme.typography.labelLarge)
                         Text(htmlToAnnotatedString(event.description))
+                    }
+
+                    if (event.url.isNotBlank()) {
+                        val context = LocalContext.current
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
+                                    context.startActivity(intent)
+                                } catch (_: ActivityNotFoundException) {
+                                    // No app to handle URL
+                                }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.Link,
+                                contentDescription = "Open URL",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = event.url,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textDecoration = TextDecoration.Underline,
+                            )
+                        }
                     }
 
                     if (event.reminderMinutes > 0) {

@@ -27,6 +27,7 @@ data class EventDetailState(
 data class EventFormState(
     val title: String = "",
     val description: String = "",
+    val url: String = "",
     val location: String = "",
     val startDate: String = "", // yyyy-MM-dd
     val startTime: String = "", // HH:mm
@@ -152,6 +153,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(
                             title = event.title,
                             description = event.description,
+                            url = event.url,
                             location = event.location,
                             startDate = startLdt?.toLocalDate()?.toString() ?: "",
                             startTime = if (event.allDay) "" else startLdt?.toLocalTime()?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) ?: "",
@@ -185,6 +187,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateTitle(value: String) { _formState.update { it.copy(title = value) } }
     fun updateDescription(value: String) { _formState.update { it.copy(description = value) } }
+    fun updateUrl(value: String) { _formState.update { it.copy(url = value) } }
     fun updateLocation(value: String) {
         _formState.update { it.copy(location = value, latitude = null, longitude = null) }
         _locationQuery.value = value
@@ -258,6 +261,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 val request = CreateEventRequest(
                     title = form.title,
                     description = form.description,
+                    url = form.url,
                     location = form.location,
                     startTime = startTimeStr,
                     endTime = endTimeStr,
@@ -297,6 +301,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 val request = UpdateEventRequest(
                     title = form.title,
                     description = form.description,
+                    url = form.url,
                     location = form.location,
                     startTime = startTimeStr,
                     endTime = endTimeStr,

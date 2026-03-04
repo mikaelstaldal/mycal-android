@@ -148,6 +148,15 @@ fun EventFormScreen(
                 maxLines = 5,
             )
 
+            OutlinedTextField(
+                value = state.url,
+                onValueChange = { viewModel.updateUrl(it) },
+                label = { Text("URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+
             LocationAutocompleteField(viewModel = viewModel, location = state.location)
 
             Row(

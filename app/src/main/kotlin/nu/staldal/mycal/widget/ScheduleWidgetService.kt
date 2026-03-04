@@ -92,8 +92,16 @@ private class ScheduleWidgetFactory(
             views.setTextViewText(R.id.item_time, "$startStr - $endStr")
         }
 
-        // Event color
-        val color = cssColorToAndroidColor(event.color)
+        // Event color — fade past events
+        val baseColor = cssColorToAndroidColor(event.color)
+        val now = LocalDateTime.now()
+        val endTime = DateUtils.parseToLocalDateTime(event.endTime)
+        val isPast = endTime != null && endTime.isBefore(now)
+        val color = if (isPast) {
+            Color.argb(102, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+        } else {
+            baseColor
+        }
         views.setInt(R.id.item_background, "setColorFilter", color)
 
         // Set fill-in intent with event ID for item clicks
