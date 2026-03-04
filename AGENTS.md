@@ -39,7 +39,7 @@ The app consumes the MyCal REST API:
 - `GET /api/v1/events?q=...` — search events
 - `POST /api/v1/events` — create event
 - `GET /api/v1/events/{id}` — get event
-- `PUT /api/v1/events/{id}` — update event (partial)
+- `PATCH /api/v1/events/{id}` — update event (partial)
 - `DELETE /api/v1/events/{id}` — delete event
 
 See the server's `docs/API.md` for full field documentation.
