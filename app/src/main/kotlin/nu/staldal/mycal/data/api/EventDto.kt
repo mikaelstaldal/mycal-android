@@ -78,3 +78,7 @@ data class UpdateEventRequest(
 data class ErrorResponse(
     val error: String,
 )
+
+data class PreferencesDto(
+    @SerializedName("defaultEventColor") val defaultEventColor: String,
+)

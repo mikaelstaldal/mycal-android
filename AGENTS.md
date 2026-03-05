@@ -34,19 +34,12 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 
 ## API
 
-The app consumes the MyCal REST API:
-- `GET /api/v1/events?from=...&to=...` — list events in range
-- `GET /api/v1/events?q=...` — search events
-- `POST /api/v1/events` — create event
-- `GET /api/v1/events/{id}` — get event
-- `PATCH /api/v1/events/{id}` — update event (partial)
-- `DELETE /api/v1/events/{id}` — delete event
-
-See the server's `docs/API.md` for full field documentation.
+The app consumes the MyCal REST API which is documented in `../mycal/docs/API.md`.
 
 ## Event Colors
 
-The app uses the same 8 CSS color names as the web frontend: `dodgerblue`, `red`, `gold`, `green`, `orange`, `mediumturquoise`, `cornflowerblue`, `salmon`. These are mapped to hex values in `CalendarScreen.kt` and `EventFormScreen.kt`.
+The app uses the same 8 CSS color names as the web frontend: `dodgerblue`, `red`, `gold`, `green`, `orange`, `mediumturquoise`, `cornflowerblue`, `salmon`. 
+These are mapped to hex values in `CalendarScreen.kt` and `EventFormScreen.kt`.
 
 ## Version control
 

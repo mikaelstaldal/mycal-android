@@ -35,4 +35,12 @@ interface ApiService {
     suspend fun deleteEvent(
         @Path("id", encoded = true) id: String,
     ): Response<Unit>
+
+    @GET("api/v1/preferences")
+    suspend fun getPreferences(): Response<PreferencesDto>
+
+    @PATCH("api/v1/preferences")
+    suspend fun updatePreferences(
+        @Body request: PreferencesDto,
+    ): Response<PreferencesDto>
 }

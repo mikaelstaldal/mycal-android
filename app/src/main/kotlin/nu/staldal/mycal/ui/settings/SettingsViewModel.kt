@@ -3,6 +3,8 @@ package nu.staldal.mycal.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import nu.staldal.mycal.data.api.ApiService
+import nu.staldal.mycal.data.api.PreferencesDto
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.ServerConfig
 import nu.staldal.mycal.data.preferences.UserPreferences
@@ -35,6 +37,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.defaultEventColor.first().let { color ->
                 _uiState.update { it.copy(defaultEventColor = color) }
             }
+            fetchPreferencesFromBackend()
+        }
+    }
+
+    private suspend fun getApiService(): ApiService? {
+        val config = prefs.serverConfig.first()
+        return RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
+    }
+
+    private suspend fun fetchPreferencesFromBackend() {
+        try {
+            val api = getApiService() ?: return
+            val response = api.getPreferences()
+            if (response.isSuccessful) {
+                response.body()?.let { prefsDto ->
+                    prefs.saveDefaultEventColor(prefsDto.defaultEventColor)
+                    _uiState.update { it.copy(defaultEventColor = prefsDto.defaultEventColor) }
+                }
+            }
+        } catch (_: Exception) {
+            // Silently ignore - use local value
         }
     }
 
@@ -54,6 +77,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(defaultEventColor = color) }
         viewModelScope.launch {
             prefs.saveDefaultEventColor(color)
+            try {
+                getApiService()?.updatePreferences(PreferencesDto(defaultEventColor = color))
+            } catch (_: Exception) {
+                // Silently ignore - local value is saved
+            }
         }
     }
 
