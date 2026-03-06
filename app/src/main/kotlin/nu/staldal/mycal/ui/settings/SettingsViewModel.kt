@@ -4,9 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import nu.staldal.mycal.data.api.ApiService
-import nu.staldal.mycal.data.api.PreferencesDto
 import nu.staldal.mycal.data.api.RetrofitClient
-import nu.staldal.mycal.data.preferences.ServerConfig
+import nu.staldal.mycal.data.api.UpdateCalendarRequest
 import nu.staldal.mycal.data.preferences.UserPreferences
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -37,7 +36,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.defaultEventColor.first().let { color ->
                 _uiState.update { it.copy(defaultEventColor = color) }
             }
-            fetchPreferencesFromBackend()
+            fetchDefaultCalendarColor()
         }
     }
 
@@ -46,14 +45,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         return RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
     }
 
-    private suspend fun fetchPreferencesFromBackend() {
+    private suspend fun fetchDefaultCalendarColor() {
         try {
             val api = getApiService() ?: return
-            val response = api.getPreferences()
+            val response = api.getCalendars()
             if (response.isSuccessful) {
-                response.body()?.let { prefsDto ->
-                    prefs.saveDefaultEventColor(prefsDto.defaultEventColor)
-                    _uiState.update { it.copy(defaultEventColor = prefsDto.defaultEventColor) }
+                response.body()?.find { it.id == 0 }?.let { defaultCal ->
+                    if (defaultCal.color.isNotBlank()) {
+                        prefs.saveDefaultEventColor(defaultCal.color)
+                        _uiState.update { it.copy(defaultEventColor = defaultCal.color) }
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -78,7 +79,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             prefs.saveDefaultEventColor(color)
             try {
-                getApiService()?.updatePreferences(PreferencesDto(defaultEventColor = color))
+                getApiService()?.updateCalendar(0, UpdateCalendarRequest(color = color))
             } catch (_: Exception) {
                 // Silently ignore - local value is saved
             }

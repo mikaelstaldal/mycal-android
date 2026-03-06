@@ -36,11 +36,12 @@ interface ApiService {
         @Path("id", encoded = true) id: String,
     ): Response<Unit>
 
-    @GET("api/v1/preferences")
-    suspend fun getPreferences(): Response<PreferencesDto>
+    @GET("api/v1/calendars")
+    suspend fun getCalendars(): Response<List<CalendarDto>>
 
-    @PATCH("api/v1/preferences")
-    suspend fun updatePreferences(
-        @Body request: PreferencesDto,
-    ): Response<PreferencesDto>
+    @PATCH("api/v1/calendars/{id}")
+    suspend fun updateCalendar(
+        @Path("id") id: Int,
+        @Body request: UpdateCalendarRequest,
+    ): Response<CalendarDto>
 }

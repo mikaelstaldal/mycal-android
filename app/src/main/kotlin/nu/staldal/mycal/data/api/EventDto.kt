@@ -79,6 +79,12 @@ data class ErrorResponse(
     val error: String,
 )
 
-data class PreferencesDto(
-    @SerializedName("defaultEventColor") val defaultEventColor: String,
+data class CalendarDto(
+    val id: Int = 0,
+    val name: String = "",
+    val color: String = "",
+)
+
+data class UpdateCalendarRequest(
+    val color: String? = null,
 )
