@@ -9,7 +9,10 @@ import android.view.View
 import nu.staldal.mycal.R
 import nu.staldal.mycal.data.local.AppDatabase
 import nu.staldal.mycal.data.local.EventEntity
+import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.util.DateUtils
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -27,16 +30,29 @@ private class ScheduleWidgetFactory(
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var events: List<EventEntity> = emptyList()
+    private var calendarColors: Map<Int, String> = emptyMap()
 
     override fun onCreate() {}
 
     override fun onDataSetChanged() {
-        val dao = AppDatabase.getInstance(context).eventDao()
+        val db = AppDatabase.getInstance(context)
+        val dao = db.eventDao()
         val now = LocalDateTime.now()
         val from = DateUtils.toRfc3339(now.toLocalDate().atStartOfDay())
         val to = DateUtils.toRfc3339(now.toLocalDate().plusDays(14).atStartOfDay())
 
-        events = dao.getEventsBetweenBlocking(from, to)
+        val hiddenIds = runBlocking {
+            UserPreferences(context).hiddenCalendarIds.first()
+        }
+        events = if (hiddenIds.isEmpty()) {
+            dao.getEventsBetweenBlocking(from, to)
+        } else {
+            dao.getEventsBetweenBlockingFiltered(from, to, hiddenIds.toList())
+        }
+
+        calendarColors = runBlocking {
+            db.calendarDao().getAll().first()
+        }.associate { it.id to it.color }
     }
 
     override fun getCount(): Int = events.size
@@ -93,7 +109,10 @@ private class ScheduleWidgetFactory(
         }
 
         // Event color — fade past events
-        val baseColor = cssColorToAndroidColor(event.color)
+        val effectiveColor = event.color.ifBlank {
+            calendarColors[event.calendarId]?.ifBlank { null }
+        }
+        val baseColor = cssColorToAndroidColor(effectiveColor)
         val now = LocalDateTime.now()
         val endTime = DateUtils.parseToLocalDateTime(event.endTime)
         val isPast = endTime != null && endTime.isBefore(now)

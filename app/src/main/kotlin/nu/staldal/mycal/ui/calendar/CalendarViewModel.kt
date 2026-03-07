@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import nu.staldal.mycal.MyCalApplication
 import nu.staldal.mycal.data.ConnectivityObserver
 import nu.staldal.mycal.data.EventRepository
+import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.preferences.ServerConfig
@@ -41,7 +42,12 @@ data class CalendarUiState(
     val isOfflineMode: Boolean = false,
     val scrollToTodayTrigger: Int = 0,
     val defaultEventColor: String = "dodgerblue",
-)
+    val calendars: List<CalendarDto> = emptyList(),
+    val hiddenCalendarIds: Set<Int> = emptySet(),
+) {
+    val calendarColors: Map<Int, String>
+        get() = calendars.associate { it.id to it.color }
+}
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = UserPreferences(application)
@@ -51,6 +57,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     private var serverConfig = ServerConfig()
+    private var hiddenCalendarIds: Set<Int> = emptySet()
     private var monthEventsJob: Job? = null
     private var scheduleEventsJob: Job? = null
 
@@ -78,6 +85,23 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             prefs.defaultEventColor.collect { color ->
                 _uiState.update { it.copy(defaultEventColor = color) }
+            }
+        }
+
+        viewModelScope.launch {
+            prefs.hiddenCalendarIds.collect { ids ->
+                hiddenCalendarIds = ids
+                _uiState.update { it.copy(hiddenCalendarIds = ids) }
+                if (_uiState.value.isConfigured) {
+                    collectMonthEvents()
+                    collectScheduleEvents()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            repository.getCalendars().collect { calendars ->
+                _uiState.update { it.copy(calendars = calendars) }
             }
         }
 
@@ -160,7 +184,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
 
         monthEventsJob = viewModelScope.launch {
-            repository.getEventsBetween(from, to).collect { events ->
+            repository.getEventsBetween(from, to, hiddenCalendarIds).collect { events ->
                 val selectedDate = _uiState.value.selectedDate
                 _uiState.update {
                     it.copy(
@@ -186,7 +210,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(scheduleStartMonth = startMonth, scheduleEndMonth = endMonth) }
 
         scheduleEventsJob = viewModelScope.launch {
-            repository.getEventsBetween(from, to).collect { events ->
+            repository.getEventsBetween(from, to, hiddenCalendarIds).collect { events ->
                 _uiState.update { it.copy(scheduleEvents = events) }
             }
         }
@@ -203,6 +227,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 repository.refreshEvents(from, to)
+                repository.refreshCalendars()
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -221,6 +246,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 repository.refreshEvents(from, to)
+                repository.refreshCalendars()
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -250,7 +276,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         val to = DateUtils.toRfc3339(updatedState.scheduleEndMonth.plusMonths(1).atDay(1).atStartOfDay())
 
         scheduleEventsJob = viewModelScope.launch {
-            repository.getEventsBetween(from, to).collect { events ->
+            repository.getEventsBetween(from, to, hiddenCalendarIds).collect { events ->
                 _uiState.update { it.copy(scheduleEvents = events, isLoadingMore = false) }
             }
         }
@@ -286,7 +312,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true) }
             try {
-                val results = repository.searchEvents(query)
+                val results = repository.searchEvents(query, hiddenCalendarIds)
                 _uiState.update { it.copy(isSearching = false, searchResults = results) }
             } catch (_: Exception) {
                 _uiState.update { it.copy(isSearching = false) }
@@ -301,6 +327,17 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun enableOfflineMode() {
         viewModelScope.launch {
             prefs.saveOfflineMode(true)
+        }
+    }
+
+    fun toggleCalendarVisibility(calendarId: Int) {
+        viewModelScope.launch {
+            val newIds = if (calendarId in hiddenCalendarIds) {
+                hiddenCalendarIds - calendarId
+            } else {
+                hiddenCalendarIds + calendarId
+            }
+            prefs.saveHiddenCalendarIds(newIds)
         }
     }
 

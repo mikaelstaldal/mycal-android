@@ -33,6 +33,7 @@ fun EventDto.toEntity(): EventEntity = EventEntity(
     recurrenceParentId = recurrenceParentId,
     recurrenceOriginalStart = recurrenceOriginalStart,
     duration = duration,
+    calendarId = calendarId,
 )
 
 fun EventEntity.toDto(): EventDto = EventDto(
@@ -64,6 +65,7 @@ fun EventEntity.toDto(): EventDto = EventDto(
     recurrenceParentId = recurrenceParentId,
     recurrenceOriginalStart = recurrenceOriginalStart,
     duration = duration,
+    calendarId = calendarId,
 )
 
 fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(

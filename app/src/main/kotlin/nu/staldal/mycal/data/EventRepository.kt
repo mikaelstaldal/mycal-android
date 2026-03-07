@@ -2,6 +2,7 @@ package nu.staldal.mycal.data
 
 import android.util.Log
 import nu.staldal.mycal.data.api.ApiService
+import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.CreateEventRequest
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.UpdateEventRequest
@@ -17,15 +18,24 @@ class EventRepository(
 ) {
     private val eventDao = database.eventDao()
     private val pendingChangeDao = database.pendingChangeDao()
+    private val calendarDao = database.calendarDao()
 
-    fun getEventsBetween(from: String, to: String): Flow<List<EventDto>> {
-        return eventDao.getEventsBetween(from, to).map { entities ->
-            entities.map { it.toDto() }
+    fun getEventsBetween(from: String, to: String, hiddenCalendarIds: Set<Int> = emptySet()): Flow<List<EventDto>> {
+        val flow = if (hiddenCalendarIds.isEmpty()) {
+            eventDao.getEventsBetween(from, to)
+        } else {
+            eventDao.getEventsBetweenFiltered(from, to, hiddenCalendarIds.toList())
         }
+        return flow.map { entities -> entities.map { it.toDto() } }
     }
 
-    suspend fun searchEvents(query: String): List<EventDto> {
-        return eventDao.searchEvents(query).map { it.toDto() }
+    suspend fun searchEvents(query: String, hiddenCalendarIds: Set<Int> = emptySet()): List<EventDto> {
+        val entities = if (hiddenCalendarIds.isEmpty()) {
+            eventDao.searchEvents(query)
+        } else {
+            eventDao.searchEventsFiltered(query, hiddenCalendarIds.toList())
+        }
+        return entities.map { it.toDto() }
     }
 
     suspend fun getEvent(id: String): EventDto? {
@@ -177,4 +187,21 @@ class EventRepository(
     }
 
     fun getPendingChangeCount(): Flow<Int> = pendingChangeDao.getPendingCount()
+
+    fun getCalendars(): Flow<List<CalendarDto>> {
+        return calendarDao.getAll().map { entities ->
+            entities.map { CalendarDto(id = it.id, name = it.name, color = it.color) }
+        }
+    }
+
+    suspend fun refreshCalendars() {
+        val api = apiProvider() ?: return
+        val response = api.getCalendars()
+        if (response.isSuccessful) {
+            val calendars = response.body() ?: emptyList()
+            calendarDao.upsertCalendars(calendars.map {
+                nu.staldal.mycal.data.local.CalendarEntity(id = it.id, name = it.name, color = it.color)
+            })
+        }
+    }
 }

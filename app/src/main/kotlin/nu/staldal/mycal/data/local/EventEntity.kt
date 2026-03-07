@@ -33,4 +33,5 @@ data class EventEntity(
     val recurrenceParentId: String? = null,
     val recurrenceOriginalStart: String? = null,
     val duration: String? = null,
+    val calendarId: Int = 0,
 )

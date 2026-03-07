@@ -11,8 +11,17 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to ORDER BY startTime")
     fun getEventsBetweenBlocking(from: String, to: String): List<EventEntity>
 
+    @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to AND calendarId NOT IN (:hiddenCalendarIds) ORDER BY startTime")
+    fun getEventsBetweenFiltered(from: String, to: String, hiddenCalendarIds: List<Int>): Flow<List<EventEntity>>
+
+    @Query("SELECT * FROM events WHERE startTime >= :from AND startTime < :to AND calendarId NOT IN (:hiddenCalendarIds) ORDER BY startTime")
+    fun getEventsBetweenBlockingFiltered(from: String, to: String, hiddenCalendarIds: List<Int>): List<EventEntity>
+
     @Query("SELECT * FROM events WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR location LIKE '%' || :query || '%' ORDER BY startTime")
     suspend fun searchEvents(query: String): List<EventEntity>
+
+    @Query("SELECT * FROM events WHERE (title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR location LIKE '%' || :query || '%') AND calendarId NOT IN (:hiddenCalendarIds) ORDER BY startTime")
+    suspend fun searchEventsFiltered(query: String, hiddenCalendarIds: List<Int>): List<EventEntity>
 
     @Query("SELECT * FROM events WHERE id = :id")
     suspend fun getEventById(id: String): EventEntity?

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import nu.staldal.mycal.dataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,6 +25,7 @@ class UserPreferences(private val context: Context) {
         val PASSWORD = stringPreferencesKey("password")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
         val DEFAULT_EVENT_COLOR = stringPreferencesKey("default_event_color")
+        val HIDDEN_CALENDAR_IDS = stringSetPreferencesKey("hidden_calendar_ids")
     }
 
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { prefs ->
@@ -57,6 +59,16 @@ class UserPreferences(private val context: Context) {
     suspend fun saveDefaultEventColor(color: String) {
         context.dataStore.edit { prefs ->
             prefs[DEFAULT_EVENT_COLOR] = color
+        }
+    }
+
+    val hiddenCalendarIds: Flow<Set<Int>> = context.dataStore.data.map { prefs ->
+        prefs[HIDDEN_CALENDAR_IDS]?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+    }
+
+    suspend fun saveHiddenCalendarIds(ids: Set<Int>) {
+        context.dataStore.edit { prefs ->
+            prefs[HIDDEN_CALENDAR_IDS] = ids.map { it.toString() }.toSet()
         }
     }
 }

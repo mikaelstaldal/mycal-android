@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
 import java.time.DayOfWeek
@@ -42,6 +43,7 @@ fun CalendarScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(forceScheduleView) {
         if (forceScheduleView && state.viewMode != ViewMode.SCHEDULE) {
@@ -84,8 +86,13 @@ fun CalendarScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text("MyCal") },
+                    title = { },
                     actions = {
+                        if (state.calendars.isNotEmpty()) {
+                            IconButton(onClick = { showFilterDialog = true }) {
+                                Icon(Icons.Default.FilterList, contentDescription = "Filter calendars")
+                            }
+                        }
                         IconButton(onClick = { viewModel.toggleViewMode() }) {
                             if (state.viewMode == ViewMode.SCHEDULE) {
                                 Icon(Icons.Default.CalendarMonth, contentDescription = "Month view")
@@ -152,6 +159,7 @@ fun CalendarScreen(
                     isSearching = state.isSearching,
                     onEventClick = onNavigateToEvent,
                     defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
+                    calendarColors = state.calendarColors,
                 )
             } else {
                 if (state.viewMode == ViewMode.SCHEDULE) {
@@ -174,6 +182,7 @@ fun CalendarScreen(
                             events = state.events,
                             onDateSelected = { viewModel.selectDate(it) },
                             defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
+                            calendarColors = state.calendarColors,
                         )
                         HorizontalDivider()
                         DayEventList(
@@ -181,6 +190,7 @@ fun CalendarScreen(
                                 events = state.selectedDayEvents,
                                 onEventClick = onNavigateToEvent,
                                 defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
+                                calendarColors = state.calendarColors,
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -195,6 +205,15 @@ fun CalendarScreen(
                 Text(error)
             }
         }
+    }
+
+    if (showFilterDialog) {
+        CalendarFilterDialog(
+            calendars = state.calendars,
+            hiddenCalendarIds = state.hiddenCalendarIds,
+            onToggle = { viewModel.toggleCalendarVisibility(it) },
+            onDismiss = { showFilterDialog = false },
+        )
     }
 }
 
@@ -233,6 +252,7 @@ private fun SearchResults(
     isSearching: Boolean,
     onEventClick: (String) -> Unit,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
+    calendarColors: Map<Int, String> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     if (isSearching) {
@@ -246,7 +266,7 @@ private fun SearchResults(
     } else {
         LazyColumn(modifier = modifier.fillMaxSize()) {
             items(results) { event ->
-                EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor)
+                EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor, calendarColors = calendarColors)
             }
         }
     }
@@ -285,6 +305,7 @@ private fun CalendarGrid(
     events: List<EventDto>,
     onDateSelected: (LocalDate) -> Unit,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
+    calendarColors: Map<Int, String> = emptyMap(),
 ) {
     val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val firstDayOfMonth = month.atDay(1)
@@ -297,7 +318,7 @@ private fun CalendarGrid(
     // Build map of date to first event color
     val eventColors = events.mapNotNull { event ->
         val date = DateUtils.parseToLocalDate(event.startTime)
-        if (date != null) date to event.color else null
+        if (date != null) date to effectiveEventColor(event, calendarColors) else null
     }.groupBy({ it.first }, { it.second })
 
     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -334,7 +355,7 @@ private fun CalendarGrid(
                             isSelected = isSelected,
                             isToday = isToday,
                             hasEvents = hasEvents,
-                            eventColor = colors.firstOrNull { it.isNotBlank() },
+                            eventColor = colors.firstOrNull { !it.isNullOrBlank() },
                             onClick = { onDateSelected(date) },
                             defaultEventColor = defaultEventColor,
                             modifier = Modifier.weight(1f),
@@ -403,6 +424,7 @@ private fun DayEventList(
     events: List<EventDto>,
     onEventClick: (String) -> Unit,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
+    calendarColors: Map<Int, String> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -421,7 +443,7 @@ private fun DayEventList(
         } else {
             LazyColumn {
                 items(events) { event ->
-                    EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor)
+                    EventListItem(event = event, onClick = { onEventClick(event.id) }, defaultEventColor = defaultEventColor, calendarColors = calendarColors)
                 }
             }
         }
@@ -439,9 +461,10 @@ fun EventListItem(
     event: EventDto,
     onClick: () -> Unit,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
+    calendarColors: Map<Int, String> = emptyMap(),
 ) {
     val past = isEventPast(event)
-    val bgColor = cssColorToComposeColor(event.color, defaultEventColor).let {
+    val bgColor = cssColorToComposeColor(effectiveEventColor(event, calendarColors), defaultEventColor).let {
         if (past) it.copy(alpha = 0.4f) else it
     }
     val contentColor = Color.White
@@ -477,6 +500,60 @@ fun EventListItem(
 }
 
 private val FALLBACK_EVENT_COLOR = Color(0xFF1E90FF) // dodgerblue
+
+@Composable
+private fun CalendarFilterDialog(
+    calendars: List<CalendarDto>,
+    hiddenCalendarIds: Set<Int>,
+    onToggle: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Calendars") },
+        text = {
+            Column {
+                calendars.forEach { calendar ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggle(calendar.id) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(cssColorToComposeColor(calendar.color.ifBlank { null })),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = calendar.name.ifBlank { "Calendar ${calendar.id}" },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Checkbox(
+                            checked = calendar.id !in hiddenCalendarIds,
+                            onCheckedChange = { onToggle(calendar.id) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        },
+    )
+}
+
+fun effectiveEventColor(event: EventDto, calendarColors: Map<Int, String>): String? {
+    if (event.color.isNotBlank()) return event.color
+    val calColor = calendarColors[event.calendarId]
+    if (!calColor.isNullOrBlank()) return calColor
+    return null
+}
 
 fun cssColorToComposeColor(name: String?, defaultColor: Color = FALLBACK_EVENT_COLOR): Color {
     return when (name?.lowercase()) {

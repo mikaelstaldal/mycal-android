@@ -31,6 +31,7 @@ data class EventDto(
     @SerializedName("recurrence_parent_id") val recurrenceParentId: String? = null,
     @SerializedName("recurrence_original_start") val recurrenceOriginalStart: String? = null,
     val duration: String? = null,
+    @SerializedName("calendar_id") val calendarId: Int = 0,
 )
 
 data class CreateEventRequest(
