@@ -13,6 +13,7 @@ import nu.staldal.mycal.data.preferences.ServerConfig
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.data.sync.SyncWorker
 import nu.staldal.mycal.util.DateUtils
+import nu.staldal.mycal.widget.ScheduleWidget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -228,6 +229,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             try {
                 repository.refreshEvents(from, to)
                 repository.refreshCalendars()
+                ScheduleWidget.notifyDataChanged(getApplication())
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -247,6 +249,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             try {
                 repository.refreshEvents(from, to)
                 repository.refreshCalendars()
+                ScheduleWidget.notifyDataChanged(getApplication())
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -289,6 +292,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             viewModelScope.launch {
                 try {
                     repository.refreshEvents(targetFrom, targetTo)
+                    ScheduleWidget.notifyDataChanged(getApplication())
                 } catch (_: Exception) {
                     // Silently fail — local data will still be shown
                 }
@@ -359,6 +363,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     val to = DateUtils.toRfc3339(month.plusMonths(1).atDay(1).atStartOfDay())
                     repository.refreshEvents(from, to)
                 }
+                ScheduleWidget.notifyDataChanged(getApplication())
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
