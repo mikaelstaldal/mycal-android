@@ -1,4 +1,7 @@
 ignored/
+TODO.md
+DOING.md
+DONE.md
 .gradle
 build/
 !**/src/main/**/build/
