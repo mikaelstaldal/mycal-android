@@ -212,8 +212,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun clearLocationSuggestions() { _locationSuggestions.value = emptyList() }
     fun updateStartDate(value: String) {
         _formState.update {
-            if (it.endDate.isNotEmpty() && value > it.endDate) {
-                it.copy(startDate = value, endDate = value)
+            if (it.startDate.isNotEmpty() && it.endDate.isNotEmpty()) {
+                val oldStart = java.time.LocalDate.parse(it.startDate)
+                val oldEnd = java.time.LocalDate.parse(it.endDate)
+                val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(oldStart, oldEnd)
+                val newEnd = java.time.LocalDate.parse(value).plusDays(daysDiff)
+                it.copy(startDate = value, endDate = newEnd.toString())
             } else {
                 it.copy(startDate = value)
             }
@@ -221,17 +225,14 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun updateStartTime(value: String) {
         _formState.update {
-            if (it.startDate == it.endDate && it.endTime.isNotEmpty() && value >= it.endTime) {
-                val startTime = java.time.LocalTime.parse(value)
-                val newEnd = startTime.plusHours(1)
+            if (it.startDate.isNotEmpty() && it.startTime.isNotEmpty() &&
+                it.endDate.isNotEmpty() && it.endTime.isNotEmpty()) {
+                val oldStart = java.time.LocalDateTime.parse("${it.startDate}T${it.startTime}")
+                val oldEnd = java.time.LocalDateTime.parse("${it.endDate}T${it.endTime}")
+                val duration = java.time.Duration.between(oldStart, oldEnd)
+                val newEnd = java.time.LocalDateTime.parse("${it.startDate}T${value}").plus(duration)
                 val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-                if (newEnd <= startTime) {
-                    // Wrapped past midnight, bump end date to next day
-                    val nextDay = java.time.LocalDate.parse(it.startDate).plusDays(1)
-                    it.copy(startTime = value, endTime = newEnd.format(fmt), endDate = nextDay.toString())
-                } else {
-                    it.copy(startTime = value, endTime = newEnd.format(fmt))
-                }
+                it.copy(startTime = value, endDate = newEnd.toLocalDate().toString(), endTime = newEnd.toLocalTime().format(fmt))
             } else {
                 it.copy(startTime = value)
             }
