@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ fun EventFormScreen(
 ) {
     val state by viewModel.formState.collectAsState()
     val isEdit = eventId != null
+    val titleFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(eventId) {
         if (eventId != null) {
@@ -90,6 +93,12 @@ fun EventFormScreen(
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onNavigateBack()
+    }
+
+    if (!isEdit) {
+        LaunchedEffect(Unit) {
+            titleFocusRequester.requestFocus()
+        }
     }
 
     Scaffold(
@@ -134,7 +143,7 @@ fun EventFormScreen(
                 value = state.title,
                 onValueChange = { viewModel.updateTitle(it) },
                 label = { Text("Title") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(titleFocusRequester),
                 singleLine = true,
                 isError = state.error != null && state.title.isBlank(),
             )
