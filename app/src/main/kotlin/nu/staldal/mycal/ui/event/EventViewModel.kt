@@ -138,6 +138,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             _detailState.update { it.copy(isLoading = true) }
             try {
                 repo.deleteEvent(id)
+                NotificationScheduler.cancelNotification(getApplication(), id)
                 _detailState.update { it.copy(isDeleted = true, isLoading = false) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
