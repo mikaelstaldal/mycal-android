@@ -74,6 +74,8 @@ class EventRepository(
             location = request.location,
             url = request.url,
             reminderMinutes = request.reminderMinutes,
+            latitude = request.latitude,
+            longitude = request.longitude,
             recurrenceFreq = request.recurrenceFreq ?: "",
             recurrenceCount = request.recurrenceCount,
             recurrenceUntil = request.recurrenceUntil,
@@ -81,6 +83,16 @@ class EventRepository(
             recurrenceByDay = request.recurrenceByDay,
             recurrenceByMonthday = request.recurrenceByMonthday,
             recurrenceByMonth = request.recurrenceByMonth,
+            categories = "",
+            createdAt = "",
+            updatedAt = "",
+            parentId = null,
+            exdates = null,
+            rdates = null,
+            recurrenceParentId = null,
+            recurrenceOriginalStart = null,
+            duration = null,
+            calendarId = 0,
         )
         eventDao.upsertEvent(entity)
         pendingChangeDao.insert(PendingChange(eventId = tempId.toString(), changeType = ChangeType.CREATE))
