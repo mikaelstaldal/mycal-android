@@ -10,9 +10,9 @@ object RetrofitClient {
     private var currentBaseUrl: String? = null
     private var currentUsername: String? = null
     private var currentPassword: String? = null
-    private var apiService: ApiService? = null
+    private var apiService: DefaultApi? = null
 
-    fun getApiService(baseUrl: String, username: String, password: String): ApiService? {
+    fun getApiService(baseUrl: String, username: String, password: String): DefaultApi? {
         if (baseUrl.isBlank()) return null
 
         val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
@@ -42,7 +42,7 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        apiService = retrofit.create(ApiService::class.java)
+        apiService = retrofit.create(DefaultApi::class.java)
         currentBaseUrl = normalizedUrl
         currentUsername = username
         currentPassword = password

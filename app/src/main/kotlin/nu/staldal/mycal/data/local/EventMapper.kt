@@ -1,26 +1,27 @@
 package nu.staldal.mycal.data.local
 
 import nu.staldal.mycal.data.api.CreateEventRequest
+import nu.staldal.mycal.data.api.Event
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.UpdateEventRequest
 
-fun EventDto.toEntity(): EventEntity = EventEntity(
+fun Event.toEntity(): EventEntity = EventEntity(
     id = id,
     title = title,
-    description = description,
+    description = description ?: "",
     startTime = startTime,
     endTime = endTime,
-    allDay = allDay,
-    color = color,
-    recurrenceFreq = recurrenceFreq,
-    location = location,
-    categories = categories,
-    url = url,
-    reminderMinutes = reminderMinutes,
+    allDay = allDay ?: false,
+    color = color ?: "",
+    recurrenceFreq = recurrenceFreq?.value ?: "",
+    location = location ?: "",
+    categories = categories ?: "",
+    url = url?.toString() ?: "",
+    reminderMinutes = reminderMinutes ?: 0,
     latitude = latitude,
     longitude = longitude,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
+    createdAt = createdAt ?: "",
+    updatedAt = updatedAt ?: "",
     parentId = parentId,
     recurrenceCount = recurrenceCount,
     recurrenceUntil = recurrenceUntil,
@@ -30,10 +31,10 @@ fun EventDto.toEntity(): EventEntity = EventEntity(
     recurrenceByMonth = recurrenceByMonth,
     exdates = exdates,
     rdates = rdates,
-    recurrenceParentId = recurrenceParentId,
+    recurrenceParentId = recurrenceParentId?.toString(),
     recurrenceOriginalStart = recurrenceOriginalStart,
     duration = duration,
-    calendarId = calendarId,
+    calendarId = calendarId?.toInt() ?: 0,
 )
 
 fun EventEntity.toDto(): EventDto = EventDto(
@@ -70,42 +71,48 @@ fun EventEntity.toDto(): EventDto = EventDto(
 
 fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     title = title,
-    description = description,
     startTime = startTime,
     endTime = endTime,
+    description = description,
     allDay = allDay,
     color = color,
     location = location,
-    url = url,
+    url = url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
     reminderMinutes = reminderMinutes,
     latitude = latitude,
     longitude = longitude,
-    recurrenceFreq = recurrenceFreq.ifBlank { null },
+    recurrenceFreq = recurrenceFreq.ifBlank { null }?.let { freq ->
+        CreateEventRequest.RecurrenceFreq.entries.firstOrNull { it.value == freq }
+    },
     recurrenceCount = recurrenceCount,
     recurrenceUntil = recurrenceUntil,
     recurrenceInterval = recurrenceInterval,
     recurrenceByDay = recurrenceByDay,
     recurrenceByMonthday = recurrenceByMonthday,
     recurrenceByMonth = recurrenceByMonth,
+    categories = categories,
 )
 
 fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     title = title,
-    description = description,
     startTime = startTime,
     endTime = endTime,
+    description = description,
     allDay = allDay,
     color = color,
     location = location,
-    url = url,
+    url = url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
     reminderMinutes = reminderMinutes,
     latitude = latitude,
     longitude = longitude,
-    recurrenceFreq = recurrenceFreq.ifBlank { null },
+    recurrenceFreq = recurrenceFreq.ifBlank { null }?.let { freq ->
+        UpdateEventRequest.RecurrenceFreq.entries.firstOrNull { it.value == freq }
+    },
     recurrenceCount = recurrenceCount,
     recurrenceUntil = recurrenceUntil,
     recurrenceInterval = recurrenceInterval,
     recurrenceByDay = recurrenceByDay,
     recurrenceByMonthday = recurrenceByMonthday,
     recurrenceByMonth = recurrenceByMonth,
+    categories = categories,
 )

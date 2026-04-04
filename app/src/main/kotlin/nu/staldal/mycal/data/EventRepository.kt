@@ -1,9 +1,9 @@
 package nu.staldal.mycal.data
 
 import android.util.Log
-import nu.staldal.mycal.data.api.ApiService
 import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.CreateEventRequest
+import nu.staldal.mycal.data.api.DefaultApi
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.local.*
@@ -14,7 +14,7 @@ const val LOGTAG = "EventRepository"
 
 class EventRepository(
     database: AppDatabase,
-    private val apiProvider: () -> ApiService?,
+    private val apiProvider: () -> DefaultApi?,
 ) {
     private val eventDao = database.eventDao()
     private val pendingChangeDao = database.pendingChangeDao()
@@ -44,7 +44,7 @@ class EventRepository(
 
     suspend fun refreshEvents(from: String, to: String) {
         val api = apiProvider() ?: return
-        val response = api.listEvents(from, to)
+        val response = api.apiV1EventsGet(from = from, to = to)
         if (response.isSuccessful) {
             val events = response.body() ?: emptyList()
             val entities = events.map { it.toEntity() }
@@ -66,24 +66,24 @@ class EventRepository(
         val entity = EventEntity(
             id = tempId.toString(),
             title = request.title,
-            description = request.description,
+            description = request.description ?: "",
             startTime = request.startTime,
-            endTime = request.endTime,
-            allDay = request.allDay,
-            color = request.color,
-            location = request.location,
-            url = request.url,
-            reminderMinutes = request.reminderMinutes,
+            endTime = request.endTime ?: "",
+            allDay = request.allDay ?: false,
+            color = request.color ?: "",
+            location = request.location ?: "",
+            url = request.url?.toString() ?: "",
+            reminderMinutes = request.reminderMinutes ?: 0,
             latitude = request.latitude,
             longitude = request.longitude,
-            recurrenceFreq = request.recurrenceFreq ?: "",
+            recurrenceFreq = request.recurrenceFreq?.value ?: "",
             recurrenceCount = request.recurrenceCount,
             recurrenceUntil = request.recurrenceUntil,
             recurrenceInterval = request.recurrenceInterval,
             recurrenceByDay = request.recurrenceByDay,
             recurrenceByMonthday = request.recurrenceByMonthday,
             recurrenceByMonth = request.recurrenceByMonth,
-            categories = "",
+            categories = request.categories ?: "",
             createdAt = "",
             updatedAt = "",
             parentId = null,
@@ -109,9 +109,9 @@ class EventRepository(
             allDay = request.allDay ?: existing.allDay,
             color = request.color ?: existing.color,
             location = request.location ?: existing.location,
-            url = request.url ?: existing.url,
+            url = request.url?.toString() ?: existing.url,
             reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
-            recurrenceFreq = request.recurrenceFreq ?: existing.recurrenceFreq,
+            recurrenceFreq = request.recurrenceFreq?.value ?: existing.recurrenceFreq,
             recurrenceCount = request.recurrenceCount ?: existing.recurrenceCount,
             recurrenceUntil = request.recurrenceUntil ?: existing.recurrenceUntil,
             recurrenceInterval = request.recurrenceInterval ?: existing.recurrenceInterval,
@@ -150,7 +150,7 @@ class EventRepository(
                     ChangeType.CREATE -> {
                         val entity = eventDao.getEventById(change.eventId)
                         if (entity != null) {
-                            val response = api.createEvent(entity.toCreateRequest())
+                            val response = api.apiV1EventsPost(createEventRequest = entity.toCreateRequest())
                             if (response.isSuccessful) {
                                 val serverEvent = response.body()!!
                                 eventDao.deleteEvent(change.eventId)
@@ -167,7 +167,7 @@ class EventRepository(
                     ChangeType.UPDATE -> {
                         val entity = eventDao.getEventById(change.eventId)
                         if (entity != null) {
-                            val response = api.updateEvent(change.eventId, entity.toUpdateRequest())
+                            val response = api.apiV1EventsIdPatch(id = change.eventId, updateEventRequest = entity.toUpdateRequest())
                             if (response.isSuccessful) {
                                 val serverEvent = response.body()!!
                                 eventDao.upsertEvent(serverEvent.toEntity())
@@ -184,7 +184,7 @@ class EventRepository(
                         }
                     }
                     ChangeType.DELETE -> {
-                        val response = api.deleteEvent(change.eventId)
+                        val response = api.apiV1EventsIdDelete(id = change.eventId)
                         if (response.isSuccessful || response.code() == 404) {
                             pendingChangeDao.delete(change)
                         } else {
@@ -210,11 +210,11 @@ class EventRepository(
 
     suspend fun refreshCalendars() {
         val api = apiProvider() ?: return
-        val response = api.getCalendars()
+        val response = api.apiV1CalendarsGet()
         if (response.isSuccessful) {
             val calendars = response.body() ?: emptyList()
             calendarDao.upsertCalendars(calendars.map {
-                nu.staldal.mycal.data.local.CalendarEntity(id = it.id, name = it.name, color = it.color)
+                CalendarEntity(id = it.id.toInt(), name = it.name, color = it.color)
             })
         }
     }

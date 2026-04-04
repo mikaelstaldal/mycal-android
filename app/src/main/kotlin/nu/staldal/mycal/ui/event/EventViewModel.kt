@@ -7,8 +7,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import nu.staldal.mycal.MyCalApplication
 import nu.staldal.mycal.data.EventRepository
-import nu.staldal.mycal.data.api.*
+import nu.staldal.mycal.data.api.CreateEventRequest
+import nu.staldal.mycal.data.api.EventDto
+import nu.staldal.mycal.data.api.NominatimClient
+import nu.staldal.mycal.data.api.NominatimPlace
 import nu.staldal.mycal.data.api.RetrofitClient
+import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.data.sync.SyncWorker
 import nu.staldal.mycal.notification.NotificationScheduler
@@ -16,6 +20,7 @@ import nu.staldal.mycal.widget.ScheduleWidget
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 data class EventDetailState(
     val event: EventDto? = null,
@@ -81,7 +86,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _locationQuery
                 .drop(1) // skip initial empty value
-                .debounce(300)
+                .debounce(300.milliseconds)
                 .collectLatest { query ->
                     if (query.length >= 3 && isNetworkAvailable()) {
                         try {
@@ -269,17 +274,19 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val request = CreateEventRequest(
                     title = form.title,
-                    description = form.description,
-                    url = form.url,
-                    location = form.location,
                     startTime = startTimeStr,
                     endTime = endTimeStr,
+                    description = form.description,
+                    url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+                    location = form.location,
                     allDay = form.allDay,
                     color = form.color,
                     reminderMinutes = form.reminderMinutes,
                     latitude = form.latitude,
                     longitude = form.longitude,
-                    recurrenceFreq = form.recurrenceFreq.ifBlank { null },
+                    recurrenceFreq = form.recurrenceFreq.ifBlank { null }?.let { freq ->
+                        CreateEventRequest.RecurrenceFreq.entries.firstOrNull { it.value == freq }
+                    },
                     recurrenceCount = form.recurrenceCount,
                     recurrenceUntil = form.recurrenceUntil,
                     recurrenceInterval = if (form.recurrenceFreq.isNotBlank() && form.recurrenceInterval > 1) form.recurrenceInterval else null,
@@ -309,17 +316,19 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val request = UpdateEventRequest(
                     title = form.title,
-                    description = form.description,
-                    url = form.url,
-                    location = form.location,
                     startTime = startTimeStr,
                     endTime = endTimeStr,
+                    description = form.description,
+                    url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+                    location = form.location,
                     allDay = form.allDay,
                     color = form.color,
                     reminderMinutes = form.reminderMinutes,
                     latitude = form.latitude,
                     longitude = form.longitude,
-                    recurrenceFreq = if (!form.isRecurringInstance) form.recurrenceFreq.ifBlank { null } else null,
+                    recurrenceFreq = if (!form.isRecurringInstance) form.recurrenceFreq.ifBlank { null }?.let { freq ->
+                        UpdateEventRequest.RecurrenceFreq.entries.firstOrNull { it.value == freq }
+                    } else null,
                     recurrenceCount = if (!form.isRecurringInstance) form.recurrenceCount else null,
                     recurrenceUntil = if (!form.isRecurringInstance) form.recurrenceUntil else null,
                     recurrenceInterval = if (!form.isRecurringInstance && form.recurrenceFreq.isNotBlank() && form.recurrenceInterval > 1) form.recurrenceInterval else null,

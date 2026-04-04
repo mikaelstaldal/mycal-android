@@ -46,4 +46,5 @@ The debug APK is output to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## API
 
-This app consumes the MyCal REST API. See the server's [API documentation](https://github.com/mikaelstaldal/mycal/blob/main/docs/API.md) for details.
+This app consumes the MyCal REST API. See the server's [API documentation](https://github.com/mikaelstaldal/mycal/blob/main/docs/API.md) 
+and [OpenAPI specification](https://github.com/mikaelstaldal/mycal/blob/main/openapi.yaml) for details.

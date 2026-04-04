@@ -3,6 +3,26 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.openapi.generator)
+}
+
+openApiGenerate {
+    generatorName.set("kotlin")
+    inputSpec.set("${rootProject.projectDir}/../mycal/openapi.yaml")
+    outputDir.set("${layout.buildDirectory.get().asFile}/generated/openapi")
+    apiPackage.set("nu.staldal.mycal.data.api")
+    modelPackage.set("nu.staldal.mycal.data.api")
+    invokerPackage.set("nu.staldal.mycal.data.api")
+    configOptions.set(mapOf(
+        "library" to "jvm-retrofit2",
+        "useCoroutines" to "true",
+        "serializationLibrary" to "gson",
+        "dateLibrary" to "string",
+    ))
+    generateApiTests.set(false)
+    generateModelTests.set(false)
+    generateApiDocumentation.set(false)
+    generateModelDocumentation.set(false)
 }
 
 android {
@@ -49,6 +69,32 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    sourceSets {
+        getByName("main") {
+            java.srcDir("${layout.buildDirectory.get().asFile}/generated/openapi/src/main/kotlin")
+        }
+    }
+}
+
+// The empty-string enum value "" generates a missing Kotlin identifier in the template.
+// Patch it to EMPTY after generation.
+tasks.named("openApiGenerate").configure {
+    doLast {
+        fileTree("${layout.buildDirectory.get().asFile}/generated/openapi/src/main/kotlin")
+            .filter { it.name.endsWith(".kt") }
+            .forEach { file ->
+                val original = file.readText()
+                val patched = original.replace(
+                    """@SerializedName(value = "") (""",
+                    """@SerializedName(value = "") EMPTY("""
+                )
+                if (patched != original) file.writeText(patched)
+            }
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn("openApiGenerate")
 }
 
 dependencies {
@@ -65,6 +111,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
+    implementation(libs.retrofit.converter.scalars)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.androidx.datastore.preferences)

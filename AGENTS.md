@@ -11,12 +11,32 @@ gradle assembleRelease     # release build
 
 No Gradle wrapper — uses system `gradle` command.
 
+## API Client Generation
+
+The Retrofit API client is generated from `../mycal/openapi.yaml` using the OpenAPI Generator Gradle Plugin. **Never edit generated files manually.**
+
+To regenerate after spec changes:
+```bash
+gradle openApiGenerate
+```
+
+Generated files live in `app/build/generated/openapi/` and are excluded from version control. They are regenerated automatically before every build.
+
+Hand-written files in `data/api/`:
+- `EventDto.kt` — UI-facing DTOs (`EventDto`, `CalendarDto`) returned by `EventRepository` from the local database
+- `RetrofitClient.kt` — OkHttp/Retrofit singleton with Basic Auth
+- `NominatimService.kt` — Geocoding client (separate from main API)
+
+Generated files (do not edit):
+- `DefaultApi` — Retrofit interface for all MyCal API endpoints
+- `Event`, `Calendar`, `CreateEventRequest`, `UpdateEventRequest`, `UpdateCalendarRequest`, and other model classes
+
 ## Architecture
 
 Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API with HTTP Basic Auth.
 
 **Layers:**
-- **data/api/** — Retrofit interface (`ApiService`), request/response DTOs (`EventDto`), HTTP client with Basic Auth interceptor (`RetrofitClient`)
+- **data/api/** — Generated Retrofit interface (`DefaultApi`), generated request/response models, UI DTOs (`EventDto`, `CalendarDto`), HTTP client with Basic Auth interceptor (`RetrofitClient`)
 - **data/preferences/** — Preferences DataStore for server URL and credentials (`UserPreferences`)
 - **ui/calendar/** — Monthly calendar grid with event list (`CalendarScreen`, `CalendarViewModel`)
 - **ui/event/** — Event detail, create/edit form (`EventDetailScreen`, `EventFormScreen`, `EventViewModel`)
@@ -34,7 +54,7 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 
 ## API
 
-The app consumes the MyCal REST API which is documented in `../mycal/docs/API.md`.
+The app consumes the MyCal REST API which is documented in `../mycal/docs/API.md` and specified in `../mycal/openapi.yaml`.
 
 ## Event Colors
 
