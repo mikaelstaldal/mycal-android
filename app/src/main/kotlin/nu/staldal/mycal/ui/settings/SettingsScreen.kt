@@ -110,6 +110,14 @@ fun SettingsScreen(
 
             Text("Default Event Color", style = MaterialTheme.typography.titleMedium)
 
+            state.error?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),

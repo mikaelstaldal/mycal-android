@@ -17,6 +17,7 @@ data class SettingsUiState(
     val testResult: String? = null,
     val isTesting: Boolean = false,
     val defaultEventColor: String = "dodgerblue",
+    val error: String? = null,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,8 +58,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
             }
-        } catch (_: Exception) {
-            // Silently ignore - use local value
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsViewModel", "Failed to fetch default calendar color", e)
         }
     }
 
@@ -80,8 +81,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.saveDefaultEventColor(color)
             try {
                 getApiService()?.apiV1CalendarsIdPatch(0L, UpdateCalendarRequest(color = color))
-            } catch (_: Exception) {
-                // Silently ignore - local value is saved
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Failed to update calendar color on server", e)
+                _uiState.update { it.copy(error = "Failed to sync color to server: ${e.message}") }
             }
         }
     }

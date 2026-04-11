@@ -293,8 +293,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 try {
                     repository.refreshEvents(targetFrom, targetTo)
                     ScheduleWidget.notifyDataChanged(getApplication())
-                } catch (_: Exception) {
-                    // Silently fail — local data will still be shown
+                } catch (e: Exception) {
+                    android.util.Log.e("CalendarViewModel", "Failed to load more schedule events", e)
+                    _uiState.update { it.copy(error = e.message) }
                 }
                 _uiState.update { it.copy(isLoadingMore = false) }
             }
@@ -318,8 +319,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             try {
                 val results = repository.searchEvents(query, hiddenCalendarIds)
                 _uiState.update { it.copy(isSearching = false, searchResults = results) }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(isSearching = false) }
+            } catch (e: Exception) {
+                android.util.Log.e("CalendarViewModel", "Search failed", e)
+                _uiState.update { it.copy(isSearching = false, searchResults = emptyList(), error = e.message) }
             }
         }
     }

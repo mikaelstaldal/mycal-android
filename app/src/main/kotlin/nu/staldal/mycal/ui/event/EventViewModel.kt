@@ -73,6 +73,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationSuggestions = MutableStateFlow<List<NominatimPlace>>(emptyList())
     val locationSuggestions: StateFlow<List<NominatimPlace>> = _locationSuggestions.asStateFlow()
 
+    private val _locationError = MutableStateFlow<String?>(null)
+    val locationError: StateFlow<String?> = _locationError.asStateFlow()
+
     private val _locationQuery = MutableStateFlow("")
 
     init {
@@ -92,12 +95,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         try {
                             val results = NominatimClient.service.search(query)
                             _locationSuggestions.value = results
+                            _locationError.value = null
                         } catch (e: Exception) {
                             android.util.Log.e("EventViewModel", "Nominatim search failed", e)
                             _locationSuggestions.value = emptyList()
+                            _locationError.value = "Location search failed: ${e.message}"
                         }
                     } else {
                         _locationSuggestions.value = emptyList()
+                        _locationError.value = null
                     }
                 }
         }

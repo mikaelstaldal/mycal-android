@@ -615,6 +615,7 @@ private fun LocationAutocompleteField(
     location: String,
 ) {
     val suggestions by viewModel.locationSuggestions.collectAsState()
+    val locationError by viewModel.locationError.collectAsState()
     val expanded = suggestions.isNotEmpty()
 
     ExposedDropdownMenuBox(
@@ -627,6 +628,8 @@ private fun LocationAutocompleteField(
             label = { Text("Location") },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
             singleLine = true,
+            isError = locationError != null,
+            supportingText = locationError?.let { { Text(it) } },
         )
         if (expanded) {
             ExposedDropdownMenu(
