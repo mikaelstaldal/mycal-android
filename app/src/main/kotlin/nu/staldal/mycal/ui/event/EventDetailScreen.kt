@@ -182,11 +182,14 @@ fun EventDetailScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
-                                    context.startActivity(intent)
-                                } catch (_: ActivityNotFoundException) {
-                                    // No app to handle URL
+                                val uri = Uri.parse(event.url)
+                                if (uri.scheme == "http" || uri.scheme == "https") {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                                        context.startActivity(intent)
+                                    } catch (_: ActivityNotFoundException) {
+                                        // No app to handle URL
+                                    }
                                 }
                             },
                         ) {
