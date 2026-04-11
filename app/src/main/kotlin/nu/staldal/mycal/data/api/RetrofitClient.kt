@@ -1,7 +1,9 @@
 package nu.staldal.mycal.data.api
 
+import nu.staldal.mycal.BuildConfig
 import okhttp3.Credentials
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -27,6 +29,13 @@ object RetrofitClient {
                     requestBuilder.header("Authorization", Credentials.basic(username, password))
                 }
                 chain.proceed(requestBuilder.build())
+            }
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BODY
+                    })
+                }
             }
             .build()
 

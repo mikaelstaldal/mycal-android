@@ -78,15 +78,28 @@ android {
 
 // The empty-string enum value "" generates a missing Kotlin identifier in the template.
 // Patch it to EMPTY after generation.
+// Also remove the HttpLoggingInterceptor from the generated ApiClient (it's dead code and
+// logs Level.BODY unconditionally, which would expose credentials and request bodies).
 tasks.named("openApiGenerate").configure {
     doLast {
         fileTree("${layout.buildDirectory.get().asFile}/generated/openapi/src/main/kotlin")
             .filter { it.name.endsWith(".kt") }
             .forEach { file ->
                 val original = file.readText()
-                val patched = original.replace(
+                var patched = original.replace(
                     """@SerializedName(value = "") (""",
                     """@SerializedName(value = "") EMPTY("""
+                )
+                patched = patched.replace(
+                    "import okhttp3.logging.HttpLoggingInterceptor\n",
+                    ""
+                )
+                patched = patched.replace(
+                    """            .addInterceptor(HttpLoggingInterceptor { message -> logger?.invoke(message) }
+                .apply { level = HttpLoggingInterceptor.Level.BODY }
+            )
+""",
+                    ""
                 )
                 if (patched != original) file.writeText(patched)
             }
