@@ -157,7 +157,7 @@ class EventRepository(
                                 eventDao.upsertEvent(serverEvent.toEntity())
                                 pendingChangeDao.delete(change)
                             } else {
-                                Log.w(LOGTAG,"Unable to create event on backend: ${response.code()} ${response.message()}")
+                                throw Exception("Unable to create event on backend: ${response.code()} ${response.message()}")
                             }
                         } else {
                             // Entity was deleted locally, remove the pending create operation
@@ -177,7 +177,7 @@ class EventRepository(
                                 eventDao.deleteEvent(change.eventId)
                                 pendingChangeDao.delete(change)
                             } else {
-                                Log.w(LOGTAG,"Unable to update event on backend: ${response.code()} ${response.message()}")
+                                throw Exception("Unable to update event on backend: ${response.code()} ${response.message()}")
                             }
                         } else {
                             pendingChangeDao.delete(change)
@@ -188,14 +188,14 @@ class EventRepository(
                         if (response.isSuccessful || response.code() == 404) {
                             pendingChangeDao.delete(change)
                         } else {
-                            Log.w(LOGTAG,"Unable to delete event on backend: ${response.code()} ${response.message()}")
+                            throw Exception("Unable to delete event on backend: ${response.code()} ${response.message()}")
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.i(LOGTAG, "Network error while syncing change to backend: $e")
-                // Network error — stop processing will retry later
-                return
+                Log.w(LOGTAG, "Failed to sync change to backend: $e")
+                // Stop processing and propagate — WorkManager will retry, UI will show error
+                throw e
             }
         }
     }
