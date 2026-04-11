@@ -54,7 +54,7 @@ fun SettingsScreen(
                 value = state.baseUrl,
                 onValueChange = { viewModel.updateBaseUrl(it) },
                 label = { Text("Server URL") },
-                placeholder = { Text("http://192.168.1.100:8080") },
+                placeholder = { Text("https://mycal.example.com") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
