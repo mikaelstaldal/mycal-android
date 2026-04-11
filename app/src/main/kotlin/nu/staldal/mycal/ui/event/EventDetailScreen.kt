@@ -65,25 +65,38 @@ fun EventDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        val event = state.event
-                        if (event?.parentId != null) {
-                            showEditSeriesDialog = true
-                        } else {
-                            onNavigateToEdit(eventId)
-                        }
-                    }) {
+                    IconButton(
+                        onClick = {
+                            val event = state.event
+                            if (event?.parentId != null) {
+                                showEditSeriesDialog = true
+                            } else {
+                                onNavigateToEdit(eventId)
+                            }
+                        },
+                        enabled = !state.isDeleting,
+                    ) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
-                    IconButton(onClick = {
-                        val event = state.event
-                        if (event?.parentId != null) {
-                            showDeleteSeriesDialog = true
+                    IconButton(
+                        onClick = {
+                            val event = state.event
+                            if (event?.parentId != null) {
+                                showDeleteSeriesDialog = true
+                            } else {
+                                showDeleteDialog = true
+                            }
+                        },
+                        enabled = !state.isDeleting,
+                    ) {
+                        if (state.isDeleting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
                         } else {
-                            showDeleteDialog = true
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
                         }
-                    }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 },
             )

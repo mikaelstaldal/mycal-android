@@ -25,6 +25,7 @@ import kotlin.time.Duration.Companion.milliseconds
 data class EventDetailState(
     val event: EventDto? = null,
     val isLoading: Boolean = false,
+    val isDeleting: Boolean = false,
     val error: String? = null,
     val isDeleted: Boolean = false,
     val defaultEventColor: String = "dodgerblue",
@@ -147,15 +148,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteEvent(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
-            _detailState.update { it.copy(isLoading = true) }
+            _detailState.update { it.copy(isDeleting = true, error = null) }
             try {
                 repo.deleteEvent(id)
                 NotificationScheduler.cancelNotification(getApplication(), id)
-                _detailState.update { it.copy(isDeleted = true, isLoading = false) }
+                _detailState.update { it.copy(isDeleted = true, isDeleting = false) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
             } catch (e: Exception) {
-                _detailState.update { it.copy(isLoading = false, error = e.message) }
+                _detailState.update { it.copy(isDeleting = false, error = e.message) }
             }
         }
     }
