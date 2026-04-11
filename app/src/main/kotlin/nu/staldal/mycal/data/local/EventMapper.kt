@@ -71,8 +71,8 @@ fun EventEntity.toDto(): EventDto = EventDto(
 
 fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     title = title,
-    startTime = startTime,
-    endTime = endTime,
+    startTime = if (allDay) startTime.take(10) else startTime,
+    endTime = if (allDay) endTime.take(10) else endTime,
     description = description,
     allDay = allDay,
     color = color,
@@ -95,8 +95,8 @@ fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
 
 fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     title = title,
-    startTime = startTime,
-    endTime = endTime,
+    startTime = if (allDay) startTime.take(10) else startTime,
+    endTime = if (allDay) endTime.take(10) else endTime,
     description = description,
     allDay = allDay,
     color = color,
