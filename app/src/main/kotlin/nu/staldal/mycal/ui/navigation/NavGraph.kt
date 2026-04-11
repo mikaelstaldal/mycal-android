@@ -82,7 +82,7 @@ fun NavGraph(
             EventFormScreen(
                 eventId = eventId,
                 onNavigateBack = {
-                    navController.popBackStack("calendar", inclusive = false)
+                    navController.popBackStack()
                 },
             )
         }
