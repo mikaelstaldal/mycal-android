@@ -73,7 +73,13 @@ fun CalendarScreen(
         return
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.error) {
+        state.error?.let { snackbarHostState.showSnackbar(it) }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (showSearch) {
                 SearchBar(
@@ -198,13 +204,6 @@ fun CalendarScreen(
                 }
             }
 
-            state.error?.let { error ->
-            Snackbar(
-                modifier = Modifier.padding(padding).padding(16.dp),
-            ) {
-                Text(error)
-            }
-        }
     }
 
     if (showFilterDialog) {
