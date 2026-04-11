@@ -182,16 +182,24 @@ fun CalendarScreen(
                             onPrevious = { viewModel.previousMonth() },
                             onNext = { viewModel.nextMonth() },
                         )
-                        CalendarGrid(
-                            month = state.currentMonth,
-                            selectedDate = state.selectedDate,
-                            events = state.events,
-                            onDateSelected = { viewModel.selectDate(it) },
-                            defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
-                            calendarColors = state.calendarColors,
-                        )
-                        HorizontalDivider()
-                        DayEventList(
+                        if (state.isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            CalendarGrid(
+                                month = state.currentMonth,
+                                selectedDate = state.selectedDate,
+                                events = state.events,
+                                onDateSelected = { viewModel.selectDate(it) },
+                                defaultEventColor = cssColorToComposeColor(state.defaultEventColor),
+                                calendarColors = state.calendarColors,
+                            )
+                            HorizontalDivider()
+                            DayEventList(
                                 date = state.selectedDate,
                                 events = state.selectedDayEvents,
                                 onEventClick = onNavigateToEvent,
@@ -201,6 +209,7 @@ fun CalendarScreen(
                             )
                         }
                     }
+                }
                 }
             }
 
