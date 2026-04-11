@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -74,6 +75,7 @@ fun EventFormScreen(
     val state by viewModel.formState.collectAsState()
     val isEdit = eventId != null
     val titleFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(eventId) {
         if (eventId != null) {
@@ -122,6 +124,7 @@ fun EventFormScreen(
                 actions = {
                     IconButton(
                         onClick = {
+                            keyboardController?.hide()
                             if (isEdit) viewModel.updateEvent(eventId!!)
                             else viewModel.createEvent()
                         },
@@ -141,14 +144,19 @@ fun EventFormScreen(
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            OutlinedTextField(
+            if (state.isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                OutlinedTextField(
                 value = state.title,
                 onValueChange = { viewModel.updateTitle(it) },
                 label = { Text("Title *") },
@@ -284,9 +292,6 @@ fun EventFormScreen(
             state.error?.let { error ->
                 Text(error, color = MaterialTheme.colorScheme.error)
             }
-
-            if (state.isSaving) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
     }

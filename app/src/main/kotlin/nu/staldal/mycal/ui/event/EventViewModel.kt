@@ -277,8 +277,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
-            val repo = getRepository()
             _formState.update { it.copy(isSaving = true, error = null) }
+            val repo = getRepository()
             try {
                 val request = CreateEventRequest(
                     title = form.title,
@@ -319,8 +319,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
         viewModelScope.launch {
-            val repo = getRepository()
             _formState.update { it.copy(isSaving = true, error = null) }
+            val repo = getRepository()
             try {
                 val request = UpdateEventRequest(
                     title = form.title,
