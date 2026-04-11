@@ -81,7 +81,7 @@ fun SettingsScreen(
             ) {
                 Button(
                     onClick = { viewModel.save(onSaved) },
-                    enabled = state.baseUrl.isNotBlank(),
+                    enabled = state.baseUrl.isNotBlank() && !state.isSaving,
                 ) {
                     Text("Save")
                 }

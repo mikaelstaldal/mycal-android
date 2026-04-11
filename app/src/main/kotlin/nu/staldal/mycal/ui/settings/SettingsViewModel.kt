@@ -15,6 +15,7 @@ data class SettingsUiState(
     val username: String = "",
     val password: String = "",
     val testResult: String? = null,
+    val isSaving: Boolean = false,
     val isTesting: Boolean = false,
     val defaultEventColor: String = "dodgerblue",
     val error: String? = null,
@@ -90,8 +91,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun save(onSaved: () -> Unit) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
             val state = _uiState.value
             prefs.saveServerConfig(state.baseUrl, state.username, state.password)
+            _uiState.update { it.copy(isSaving = false) }
             onSaved()
         }
     }
