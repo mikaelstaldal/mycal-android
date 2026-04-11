@@ -380,6 +380,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             return null
         }
         return if (form.allDay) {
+            if (form.endDate < form.startDate) {
+                _formState.update { it.copy(error = "End date must be on or after start date") }
+                return null
+            }
             form.startDate to form.endDate
         } else {
             if (form.startTime.isBlank() || form.endTime.isBlank()) {
@@ -388,6 +392,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             }
             val startLdt = java.time.LocalDateTime.parse("${form.startDate}T${form.startTime}")
             val endLdt = java.time.LocalDateTime.parse("${form.endDate}T${form.endTime}")
+            if (!endLdt.isAfter(startLdt)) {
+                _formState.update { it.copy(error = "End time must be after start time") }
+                return null
+            }
             nu.staldal.mycal.util.DateUtils.toRfc3339(startLdt) to nu.staldal.mycal.util.DateUtils.toRfc3339(endLdt)
         }
     }
