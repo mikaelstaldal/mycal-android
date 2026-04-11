@@ -91,8 +91,16 @@ fun EventFormScreen(
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
     LaunchedEffect(state.isSaved) {
-        if (state.isSaved) onNavigateBack()
+        if (state.isSaved) {
+            snackbarHostState.showSnackbar(
+                if (eventId != null) "Event updated" else "Event created",
+                duration = SnackbarDuration.Short,
+            )
+            onNavigateBack()
+        }
     }
 
     if (!isEdit) {
@@ -102,6 +110,7 @@ fun EventFormScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (isEdit) "Edit Event" else "New Event") },

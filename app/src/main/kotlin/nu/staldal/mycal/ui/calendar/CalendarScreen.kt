@@ -77,6 +77,12 @@ fun CalendarScreen(
     LaunchedEffect(state.error) {
         state.error?.let { snackbarHostState.showSnackbar(it) }
     }
+    LaunchedEffect(state.syncMessage) {
+        state.syncMessage?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            viewModel.clearSyncMessage()
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },

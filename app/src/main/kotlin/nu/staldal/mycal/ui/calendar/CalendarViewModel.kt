@@ -45,6 +45,7 @@ data class CalendarUiState(
     val defaultEventColor: String = "dodgerblue",
     val calendars: List<CalendarDto> = emptyList(),
     val hiddenCalendarIds: Set<Int> = emptySet(),
+    val syncMessage: String? = null,
 ) {
     val calendarColors: Map<Int, String>
         get() = calendars.associate { it.id to it.color }
@@ -366,10 +367,14 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     repository.refreshEvents(from, to)
                 }
                 ScheduleWidget.notifyDataChanged(getApplication())
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, syncMessage = "Synced") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
+    }
+
+    fun clearSyncMessage() {
+        _uiState.update { it.copy(syncMessage = null) }
     }
 }
