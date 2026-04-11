@@ -46,6 +46,7 @@ data class EventFormState(
     val longitude: Double? = null,
     val isSaving: Boolean = false,
     val error: String? = null,
+    val urlError: Boolean = false,
     val isSaved: Boolean = false,
     val isLoading: Boolean = false,
     // Recurrence fields
@@ -206,7 +207,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateTitle(value: String) { _formState.update { it.copy(title = value) } }
     fun updateDescription(value: String) { _formState.update { it.copy(description = value) } }
-    fun updateUrl(value: String) { _formState.update { it.copy(url = value) } }
+    fun updateUrl(value: String) { _formState.update { it.copy(url = value, urlError = false) } }
     fun updateLocation(value: String) {
         _formState.update { it.copy(location = value, latitude = null, longitude = null) }
         _locationQuery.value = value
@@ -378,6 +379,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         if (form.title.isBlank() || form.startDate.isBlank() || form.endDate.isBlank()) {
             _formState.update { it.copy(error = "Title, start date, and end date are required") }
             return null
+        }
+        if (form.url.isNotBlank()) {
+            val scheme = try { java.net.URL(form.url).protocol } catch (e: Exception) { null }
+            if (scheme != "http" && scheme != "https") {
+                _formState.update { it.copy(error = "URL must start with http:// or https://", urlError = true) }
+                return null
+            }
         }
         return if (form.allDay) {
             if (form.endDate < form.startDate) {

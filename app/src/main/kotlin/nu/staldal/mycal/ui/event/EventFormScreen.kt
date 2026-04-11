@@ -173,6 +173,10 @@ fun EventFormScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                isError = state.urlError,
+                supportingText = if (state.urlError) {
+                    { Text("Must be a valid http:// or https:// URL") }
+                } else null,
             )
 
             LocationAutocompleteField(viewModel = viewModel, location = state.location)
