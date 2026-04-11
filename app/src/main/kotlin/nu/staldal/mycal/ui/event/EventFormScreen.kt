@@ -151,7 +151,7 @@ fun EventFormScreen(
             OutlinedTextField(
                 value = state.title,
                 onValueChange = { viewModel.updateTitle(it) },
-                label = { Text("Title") },
+                label = { Text("Title *") },
                 modifier = Modifier.fillMaxWidth().focusRequester(titleFocusRequester),
                 singleLine = true,
                 isError = state.error != null && state.title.isBlank(),
@@ -198,6 +198,7 @@ fun EventFormScreen(
                 value = state.startDate,
                 label = "Start Date",
                 onDateSelected = { viewModel.updateStartDate(it) },
+                isError = state.error != null && state.startDate.isBlank(),
             )
 
             if (!state.allDay) {
@@ -205,6 +206,7 @@ fun EventFormScreen(
                     value = state.startTime,
                     label = "Start Time",
                     onTimeSelected = { viewModel.updateStartTime(it) },
+                    isError = state.error != null && state.startTime.isBlank(),
                 )
             }
 
@@ -212,6 +214,7 @@ fun EventFormScreen(
                 value = state.endDate,
                 label = "End Date",
                 onDateSelected = { viewModel.updateEndDate(it) },
+                isError = state.error != null && state.endDate.isBlank(),
             )
 
             if (!state.allDay) {
@@ -219,6 +222,7 @@ fun EventFormScreen(
                     value = state.endTime,
                     label = "End Time",
                     onTimeSelected = { viewModel.updateEndTime(it) },
+                    isError = state.error != null && state.endTime.isBlank(),
                 )
             }
 
@@ -463,6 +467,7 @@ private fun DatePickerField(
     value: String,
     label: String,
     onDateSelected: (String) -> Unit,
+    isError: Boolean = false,
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
@@ -481,6 +486,7 @@ private fun DatePickerField(
             .fillMaxWidth()
             .clickable { showDialog = true },
         singleLine = true,
+        isError = isError,
         interactionSource = remember { MutableInteractionSource() }.also { interactionSource ->
             LaunchedEffect(interactionSource) {
                 interactionSource.interactions.collect { interaction ->
@@ -524,6 +530,7 @@ private fun TimePickerField(
     value: String,
     label: String,
     onTimeSelected: (String) -> Unit,
+    isError: Boolean = false,
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
@@ -543,6 +550,7 @@ private fun TimePickerField(
             .fillMaxWidth()
             .clickable { showDialog = true },
         singleLine = true,
+        isError = isError,
         interactionSource = remember { MutableInteractionSource() }.also { interactionSource ->
             LaunchedEffect(interactionSource) {
                 interactionSource.interactions.collect { interaction ->
