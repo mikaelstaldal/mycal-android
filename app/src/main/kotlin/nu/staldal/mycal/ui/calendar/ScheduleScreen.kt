@@ -238,12 +238,20 @@ private fun buildScheduleDays(state: CalendarUiState): List<ScheduleDayItem> {
     val startDate = if (monthStart == currentMonthStart) today else monthStart
     val endDate = state.scheduleEndMonth.atEndOfMonth()
 
-    val eventsByDate = state.scheduleEvents
-        .mapNotNull { event ->
-            val date = DateUtils.parseToLocalDate(event.startTime)
-            if (date != null) date to event else null
+    val eventsByDate = mutableMapOf<LocalDate, MutableList<EventDto>>()
+    state.scheduleEvents.forEach { event ->
+        val eventStart = DateUtils.parseToLocalDate(event.startTime) ?: return@forEach
+        if (event.allDay && event.endTime.isNotBlank()) {
+            val eventEnd = DateUtils.parseToLocalDate(event.endTime) ?: eventStart.plusDays(1)
+            var d = eventStart
+            while (d.isBefore(eventEnd)) {
+                eventsByDate.getOrPut(d) { mutableListOf() }.add(event)
+                d = d.plusDays(1)
+            }
+        } else {
+            eventsByDate.getOrPut(eventStart) { mutableListOf() }.add(event)
         }
-        .groupBy({ it.first }, { it.second })
+    }
 
     val days = mutableListOf<ScheduleDayItem>()
     var date = startDate

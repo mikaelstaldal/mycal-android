@@ -178,7 +178,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             location = event.location,
                             startDate = startLdt?.toLocalDate()?.toString() ?: "",
                             startTime = if (event.allDay) "" else startLdt?.toLocalTime()?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) ?: "",
-                            endDate = endLdt?.toLocalDate()?.toString() ?: "",
+                            endDate = if (event.allDay) endLdt?.toLocalDate()?.minusDays(1)?.toString() ?: "" else endLdt?.toLocalDate()?.toString() ?: "",
                             endTime = if (event.allDay) "" else endLdt?.toLocalTime()?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) ?: "",
                             allDay = event.allDay,
                             color = event.color,
@@ -397,7 +397,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 _formState.update { it.copy(error = "End date must be on or after start date") }
                 return null
             }
-            form.startDate to form.endDate
+            // Form end date is inclusive; API expects exclusive (endDate = last day + 1)
+            val exclusiveEndDate = java.time.LocalDate.parse(form.endDate).plusDays(1).toString()
+            form.startDate to exclusiveEndDate
         } else {
             if (form.startTime.isBlank() || form.endTime.isBlank()) {
                 _formState.update { it.copy(error = "Start time and end time are required for non-all-day events") }

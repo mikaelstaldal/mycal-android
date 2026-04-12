@@ -135,7 +135,14 @@ fun EventDetailScreen(
                     }
 
                     if (event.allDay) {
-                        DetailRow("Date", DateUtils.formatDisplayDate(event.startTime))
+                        val startDate = DateUtils.parseToLocalDate(event.startTime)
+                        val exclusiveEnd = DateUtils.parseToLocalDate(event.endTime)
+                        val inclusiveEnd = exclusiveEnd?.minusDays(1)
+                        if (inclusiveEnd != null && inclusiveEnd != startDate) {
+                            DetailRow("Date", "${DateUtils.formatDisplayDate(event.startTime)} – ${DateUtils.formatDisplayDate(inclusiveEnd.toString())}")
+                        } else {
+                            DetailRow("Date", DateUtils.formatDisplayDate(event.startTime))
+                        }
                     } else {
                         DetailRow("Start", DateUtils.formatDisplayDateTime(event.startTime))
                         DetailRow("End", DateUtils.formatDisplayDateTime(event.endTime))

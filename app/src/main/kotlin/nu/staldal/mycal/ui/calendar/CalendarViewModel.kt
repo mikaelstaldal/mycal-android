@@ -138,12 +138,18 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { state ->
             state.copy(
                 selectedDate = date,
-                selectedDayEvents = state.events.filter { event ->
-                    val eventDate = DateUtils.parseToLocalDate(event.startTime)
-                    eventDate == date
-                },
+                selectedDayEvents = state.events.filter { event -> isEventOnDate(event, date) },
             )
         }
+    }
+
+    private fun isEventOnDate(event: EventDto, date: LocalDate): Boolean {
+        val startDate = DateUtils.parseToLocalDate(event.startTime) ?: return false
+        if (event.allDay && event.endTime.isNotBlank()) {
+            val endDate = DateUtils.parseToLocalDate(event.endTime) ?: startDate.plusDays(1)
+            return !date.isBefore(startDate) && date.isBefore(endDate)
+        }
+        return startDate == date
     }
 
     fun toggleViewMode() {
@@ -191,10 +197,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update {
                     it.copy(
                         events = events,
-                        selectedDayEvents = events.filter { event ->
-                            val eventDate = DateUtils.parseToLocalDate(event.startTime)
-                            eventDate == selectedDate
-                        },
+                        selectedDayEvents = events.filter { event -> isEventOnDate(event, selectedDate) },
                     )
                 }
             }

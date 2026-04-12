@@ -327,13 +327,26 @@ private fun CalendarGrid(
     val daysInMonth = month.lengthOfMonth()
     val today = LocalDate.now()
 
-    // Build set of dates that have events
-    val eventDates = events.mapNotNull { DateUtils.parseToLocalDate(it.startTime) }.toSet()
-    // Build map of date to first event color
-    val eventColors = events.mapNotNull { event ->
-        val date = DateUtils.parseToLocalDate(event.startTime)
-        if (date != null) date to effectiveEventColor(event, calendarColors) else null
-    }.groupBy({ it.first }, { it.second })
+    // Build set of dates that have events (all days for multi-day all-day events)
+    val eventDates = mutableSetOf<LocalDate>()
+    val eventColorsMap = mutableMapOf<LocalDate, MutableList<String?>>()
+    events.forEach { event ->
+        val startDate = DateUtils.parseToLocalDate(event.startTime) ?: return@forEach
+        val color = effectiveEventColor(event, calendarColors)
+        if (event.allDay && event.endTime.isNotBlank()) {
+            val endDate = DateUtils.parseToLocalDate(event.endTime) ?: startDate.plusDays(1)
+            var d = startDate
+            while (d.isBefore(endDate)) {
+                eventDates.add(d)
+                eventColorsMap.getOrPut(d) { mutableListOf() }.add(color)
+                d = d.plusDays(1)
+            }
+        } else {
+            eventDates.add(startDate)
+            eventColorsMap.getOrPut(startDate) { mutableListOf() }.add(color)
+        }
+    }
+    val eventColors = eventColorsMap
 
     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
         // Day-of-week headers
