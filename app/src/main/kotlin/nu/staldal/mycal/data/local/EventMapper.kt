@@ -9,8 +9,8 @@ fun Event.toEntity(): EventEntity = EventEntity(
     id = id,
     title = title,
     description = description ?: "",
-    startTime = startTime,
-    endTime = endTime,
+    startTime = if (allDay == true) startDate ?: "" else startTime ?: "",
+    endTime = if (allDay == true) endDate ?: "" else endTime ?: "",
     allDay = allDay ?: false,
     color = color ?: "",
     recurrenceFreq = recurrenceFreq?.value ?: "",
@@ -71,8 +71,10 @@ fun EventEntity.toDto(): EventDto = EventDto(
 
 fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     title = title,
-    startTime = if (allDay) startTime.take(10) else startTime,
-    endTime = if (allDay) endTime.take(10) else endTime,
+    startDate = if (allDay) startTime.takeIf { it.isNotBlank() } else null,
+    endDate = if (allDay) endTime.takeIf { it.isNotBlank() } else null,
+    startTime = if (!allDay) startTime.takeIf { it.isNotBlank() } else null,
+    endTime = if (!allDay) endTime.takeIf { it.isNotBlank() } else null,
     description = description,
     allDay = allDay,
     color = color,
@@ -95,8 +97,10 @@ fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
 
 fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     title = title,
-    startTime = if (allDay) startTime.take(10) else startTime,
-    endTime = if (allDay) endTime.take(10) else endTime,
+    startDate = if (allDay) startTime.takeIf { it.isNotBlank() } else null,
+    endDate = if (allDay) endTime.takeIf { it.isNotBlank() } else null,
+    startTime = if (!allDay) startTime.takeIf { it.isNotBlank() } else null,
+    endTime = if (!allDay) endTime.takeIf { it.isNotBlank() } else null,
     description = description,
     allDay = allDay,
     color = color,

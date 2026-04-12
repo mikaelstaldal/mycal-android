@@ -11,7 +11,9 @@ gradle assembleRelease     # release build
 
 No Gradle wrapper — uses system `gradle` command.
 
-## API Client Generation
+## API
+
+The app consumes the MyCal REST API which is documented in `../mycal/docs/API.md` and specified in `../mycal/openapi.yaml`.
 
 The Retrofit API client is generated from `../mycal/openapi.yaml` using the OpenAPI Generator Gradle Plugin. **Never edit generated files manually.**
 
@@ -51,10 +53,6 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 - ViewModels use `AndroidViewModel` to access application context for DataStore
 - Dates/times use Material 3 DatePicker and TimePicker dialogs, storing values as `yyyy-MM-dd` and `HH:mm` strings
 - All API timestamps use RFC 3339 format, converted to local timezone for display
-
-## API
-
-The app consumes the MyCal REST API which is documented in `../mycal/docs/API.md` and specified in `../mycal/openapi.yaml`.
 
 ## Event Colors
 

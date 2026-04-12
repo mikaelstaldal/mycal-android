@@ -282,8 +282,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val request = CreateEventRequest(
                     title = form.title,
-                    startTime = startTimeStr,
-                    endTime = endTimeStr,
+                    startDate = if (form.allDay) startTimeStr else null,
+                    endDate = if (form.allDay) endTimeStr else null,
+                    startTime = if (!form.allDay) startTimeStr else null,
+                    endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
                     url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
                     location = form.location,
@@ -324,8 +326,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val request = UpdateEventRequest(
                     title = form.title,
-                    startTime = startTimeStr,
-                    endTime = endTimeStr,
+                    startDate = if (form.allDay) startTimeStr else null,
+                    endDate = if (form.allDay) endTimeStr else null,
+                    startTime = if (!form.allDay) startTimeStr else null,
+                    endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
                     url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
                     location = form.location,
