@@ -17,7 +17,8 @@
 ### Offline Mode
 
 **U14. Offline mode limitations not communicated**
-`CalendarScreen.kt:69` — The "Work Offline" button does not explain that changes cannot be synced. Once offline, there is no persistent indicator on the calendar screen, and it is unclear how to return to online mode.
+`CalendarScreen.kt:69` — The "Work Offline" button does not explain that changes cannot be synced. 
+Once offline, there is no persistent indicator on the calendar screen, and it is unclear how to return to online mode.
 
 **U15. Sync button active while offline**
 `CalendarScreen.kt:142-154` — The sync button is not disabled in offline mode, misleading users into thinking a sync will occur.
