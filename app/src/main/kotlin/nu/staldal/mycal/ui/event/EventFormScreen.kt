@@ -24,7 +24,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -97,15 +96,9 @@ fun EventFormScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
-            android.widget.Toast.makeText(
-                context,
-                if (eventId != null) "Event updated" else "Event created",
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
             onNavigateBack()
         }
     }
