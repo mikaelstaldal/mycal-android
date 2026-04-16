@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -418,12 +420,19 @@ private fun DayCell(
         else -> MaterialTheme.colorScheme.onSurface
     }
 
+    val cellDescription = buildString {
+        append("Day $day")
+        if (isToday) append(", today")
+        if (isSelected) append(", selected")
+        if (hasEvents) append(", has events")
+    }
     Column(
         modifier = modifier
             .aspectRatio(1f)
             .padding(2.dp)
             .clip(CircleShape)
             .background(bgColor)
+            .semantics { contentDescription = cellDescription }
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -496,12 +505,20 @@ fun EventListItem(
     }
     val contentColor = Color.White
 
+    val itemDescription = buildString {
+        append(event.title)
+        if (!event.allDay) {
+            append(", ${DateUtils.formatDisplayTime(event.startTime)} - ${DateUtils.formatDisplayTime(event.endTime)}")
+        }
+        if (past) append(", past event")
+    }
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 2.dp)
+            .semantics { contentDescription = itemDescription }
             .clickable(onClick = onClick),
     ) {
         Column(

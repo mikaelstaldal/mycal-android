@@ -13,6 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -143,6 +145,9 @@ fun SettingsScreen(
                                     if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
                                     else Modifier
                                 )
+                                .semantics {
+                                    contentDescription = "${colorOpt.name}${if (isSelected) ", selected" else ""}"
+                                }
                                 .clickable { viewModel.updateDefaultEventColor(colorOpt.name) },
                         )
                     }
