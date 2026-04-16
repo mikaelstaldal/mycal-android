@@ -6,11 +6,6 @@
 
 ### Accessibility
 
-**U12. Missing content descriptions on interactive elements**
-- Event list items (`CalendarScreen.kt:478`) have no semantic label for screen readers
-- Day cells with event indicators (`CalendarScreen.kt:373-418`) have no description of the dot or that events exist
-- Color picker circles (`SettingsScreen.kt:129-140`, `EventFormScreen.kt:252-264`) have no labels, making them inaccessible to color-blind users and screen readers
-
 **U13. Touch targets below 48 dp minimum**
 `EventFormScreen.kt:252-264` and `SettingsScreen.kt:129-140` — Color selection circles are 36 dp, below the Material Design 48 dp minimum.
 
