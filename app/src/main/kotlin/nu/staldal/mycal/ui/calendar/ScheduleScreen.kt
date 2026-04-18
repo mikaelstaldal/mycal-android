@@ -102,6 +102,34 @@ fun ScheduleContent(
             }
         }
 
+        if (!state.isLoading && dayItems.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillParentMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = if (state.calendars.isEmpty()) "No events yet" else "No upcoming events",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (state.calendars.isEmpty() && !state.isOfflineMode) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Tap \u2191 Sync to load your calendar",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         dayItems.forEach { dayItem ->
             val eventCount = dayItem.events.size
             dayItem.events.forEachIndexed { index, event ->
