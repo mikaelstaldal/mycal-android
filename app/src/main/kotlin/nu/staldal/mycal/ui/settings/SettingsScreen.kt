@@ -120,8 +120,9 @@ fun SettingsScreen(
                 )
             }
 
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 EVENT_COLORS.filter { it.name.isNotEmpty() }.forEach { colorOpt ->
@@ -138,7 +139,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colorOpt.color)
                                 .then(

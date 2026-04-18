@@ -256,8 +256,9 @@ fun EventFormScreen(
 
             // Color picker
             Text("Color", style = MaterialTheme.typography.labelLarge)
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 EVENT_COLORS.forEach { colorOpt ->
@@ -274,7 +275,7 @@ fun EventFormScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(colorOpt.color)
                                 .then(
