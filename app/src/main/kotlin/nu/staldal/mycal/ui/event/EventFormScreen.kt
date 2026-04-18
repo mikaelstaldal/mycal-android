@@ -67,7 +67,7 @@ val WEEKDAY_OPTIONS = listOf(
     WeekdayOption("SU", "Sun"),
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventFormScreen(
     eventId: String?, // null for create, non-null for edit
