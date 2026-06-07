@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,10 +30,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.content.FileProvider
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
+import nu.staldal.mycal.util.IcsBuilder
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +70,15 @@ fun EventDetailScreen(
                     }
                 },
                 actions = {
+                    val context = LocalContext.current
+                    IconButton(
+                        onClick = {
+                            state.event?.let { event -> shareEventAsIcs(context, event) }
+                        },
+                        enabled = state.event != null,
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share")
+                    }
                     IconButton(
                         onClick = {
                             val event = state.event
@@ -346,6 +360,24 @@ private fun DetailRow(label: String, value: String) {
             style = MaterialTheme.typography.labelLarge,
         )
         Text(value)
+    }
+}
+
+private fun shareEventAsIcs(context: Context, event: EventDto) {
+    try {
+        val sharedDir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(sharedDir, "event.ics")
+        file.writeText(IcsBuilder.buildIcs(event))
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/calendar"
+            putExtra(Intent.EXTRA_SUBJECT, event.title)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share event"))
+    } catch (_: ActivityNotFoundException) {
+        // No app to handle sharing
     }
 }
 
