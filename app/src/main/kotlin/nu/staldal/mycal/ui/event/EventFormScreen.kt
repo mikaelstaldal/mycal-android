@@ -67,11 +67,24 @@ val WEEKDAY_OPTIONS = listOf(
     WeekdayOption("SU", "Sun"),
 )
 
+/** Pre-fill values for a new event, e.g. from an incoming `ACTION_INSERT` intent. */
+data class NewEventPrefill(
+    val title: String? = null,
+    val description: String? = null,
+    val location: String? = null,
+    val startDate: String? = null, // yyyy-MM-dd
+    val startTime: String? = null, // HH:mm
+    val endDate: String? = null,   // yyyy-MM-dd
+    val endTime: String? = null,   // HH:mm
+    val allDay: Boolean = false,
+)
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventFormScreen(
     eventId: String?, // null for create, non-null for edit
     onNavigateBack: () -> Unit,
+    prefill: NewEventPrefill? = null,
     viewModel: EventViewModel = viewModel(),
 ) {
     val state by viewModel.formState.collectAsState()
@@ -88,10 +101,17 @@ fun EventFormScreen(
             val now = LocalTime.now()
             val startHour = now.plusHours(1).withMinute(0)
             val endHour = startHour.plusHours(1)
-            viewModel.updateStartDate(today.toString())
-            viewModel.updateEndDate(today.toString())
-            viewModel.updateStartTime(startHour.format(DateTimeFormatter.ofPattern("HH:mm")))
-            viewModel.updateEndTime(endHour.format(DateTimeFormatter.ofPattern("HH:mm")))
+            val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+            viewModel.updateStartDate(prefill?.startDate ?: today.toString())
+            viewModel.updateEndDate(prefill?.endDate ?: prefill?.startDate ?: today.toString())
+            viewModel.updateStartTime(prefill?.startTime ?: startHour.format(timeFormatter))
+            viewModel.updateEndTime(prefill?.endTime ?: endHour.format(timeFormatter))
+            if (prefill?.allDay == true) {
+                viewModel.updateAllDay(true)
+            }
+            prefill?.title?.let { viewModel.updateTitle(it) }
+            prefill?.description?.let { viewModel.updateDescription(it) }
+            prefill?.location?.let { viewModel.updateLocation(it) }
         }
     }
 

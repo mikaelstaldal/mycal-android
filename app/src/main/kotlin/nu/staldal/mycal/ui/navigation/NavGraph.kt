@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import nu.staldal.mycal.ui.calendar.CalendarScreen
 import nu.staldal.mycal.ui.event.EventDetailScreen
 import nu.staldal.mycal.ui.event.EventFormScreen
+import nu.staldal.mycal.ui.event.NewEventPrefill
 import nu.staldal.mycal.ui.settings.SettingsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -18,12 +19,13 @@ import java.net.URLEncoder
 fun NavGraph(
     forceScheduleView: Boolean = false,
     openNewEvent: Boolean = false,
+    newEventPrefill: NewEventPrefill? = null,
     viewEventId: String? = null,
 ) {
     val navController = rememberNavController()
 
-    LaunchedEffect(openNewEvent) {
-        if (openNewEvent) {
+    LaunchedEffect(openNewEvent, newEventPrefill) {
+        if (openNewEvent || newEventPrefill != null) {
             navController.navigate("event/new")
         }
     }
@@ -67,6 +69,7 @@ fun NavGraph(
         composable("event/new") {
             EventFormScreen(
                 eventId = null,
+                prefill = newEventPrefill,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
