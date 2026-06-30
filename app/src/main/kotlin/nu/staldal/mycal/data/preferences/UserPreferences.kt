@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import nu.staldal.mycal.dataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 data class ServerConfig(
@@ -19,10 +20,9 @@ data class ServerConfig(
 }
 
 class UserPreferences(private val context: Context) {
+    private val credentialStore = CredentialStore(context)
+
     companion object {
-        val BASE_URL = stringPreferencesKey("base_url")
-        val USERNAME = stringPreferencesKey("username")
-        val PASSWORD = stringPreferencesKey("password")
         val OFFLINE_MODE = booleanPreferencesKey("offline_mode")
         val DEFAULT_EVENT_COLOR = stringPreferencesKey("default_event_color")
         val HIDDEN_CALENDAR_IDS = stringSetPreferencesKey("hidden_calendar_ids")
@@ -30,19 +30,50 @@ class UserPreferences(private val context: Context) {
 
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { prefs ->
         ServerConfig(
-            baseUrl = prefs[BASE_URL] ?: "",
-            username = prefs[USERNAME] ?: "",
-            password = prefs[PASSWORD] ?: "",
+            baseUrl = credentialStore.baseUrl ?: "",
+            username = credentialStore.username ?: "",
+            password = credentialStore.password ?: "",
             offlineMode = prefs[OFFLINE_MODE] ?: false,
         )
     }
 
     suspend fun saveServerConfig(baseUrl: String, username: String, password: String) {
+        credentialStore.save(baseUrl, username, password)
         context.dataStore.edit { prefs ->
-            prefs[BASE_URL] = baseUrl
-            prefs[USERNAME] = username
-            prefs[PASSWORD] = password
             prefs[OFFLINE_MODE] = false
+        }
+    }
+
+    suspend fun migrateCredentialsFromDataStore() {
+        if (credentialStore.hasCredentials()) return
+
+        val legacyBaseUrl = stringPreferencesKey("base_url")
+        val legacyUsername = stringPreferencesKey("username")
+        val legacyPassword = stringPreferencesKey("password")
+
+        val snapshot = context.dataStore.data.first()
+        val oldBaseUrl = snapshot[legacyBaseUrl]
+        val oldUsername = snapshot[legacyUsername]
+        val oldPassword = snapshot[legacyPassword]
+
+        if (oldBaseUrl.isNullOrEmpty() && oldUsername.isNullOrEmpty() && oldPassword.isNullOrEmpty()) return
+
+        credentialStore.save(
+            baseUrl = oldBaseUrl ?: "",
+            username = oldUsername ?: "",
+            password = oldPassword ?: "",
+        )
+
+        // Overwrite with empty strings before removing for best-effort secure erasure
+        context.dataStore.edit { prefs ->
+            prefs[legacyBaseUrl] = ""
+            prefs[legacyUsername] = ""
+            prefs[legacyPassword] = ""
+        }
+        context.dataStore.edit { prefs ->
+            prefs.remove(legacyBaseUrl)
+            prefs.remove(legacyUsername)
+            prefs.remove(legacyPassword)
         }
     }
 
