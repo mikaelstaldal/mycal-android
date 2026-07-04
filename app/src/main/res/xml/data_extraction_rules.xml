@@ -10,5 +10,12 @@
     </cloud-backup>
     <device-transfer>
         <include domain="root" path="."/>
+        <!--
+           Exclude the EncryptedSharedPreferences file. Its Tink keysets are wrapped by
+           an AndroidKeyStore master key, which never leaves the device, so the file
+           cannot be decrypted on the target device after migration. Transferring it
+           would cause EncryptedSharedPreferences.create() to throw on first launch.
+        -->
+        <exclude domain="sharedpref" path="secret_shared_prefs.xml"/>
     </device-transfer>
 </data-extraction-rules>
