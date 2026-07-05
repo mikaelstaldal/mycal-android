@@ -9,7 +9,6 @@
         <exclude domain="root" path="."/>
     </cloud-backup>
     <device-transfer>
-        <include domain="root" path="."/>
         <!--
            Exclude the EncryptedSharedPreferences file. Its Tink keysets are wrapped by
            an AndroidKeyStore master key, which never leaves the device, so the file
