@@ -6,8 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.widget.RemoteViews
+import androidx.core.net.toUri
 import nu.staldal.mycal.MainActivity
 import nu.staldal.mycal.R
 
@@ -49,7 +49,7 @@ class ScheduleWidget : AppWidgetProvider() {
             // Set up the RemoteViews adapter for the list
             val serviceIntent = Intent(context, ScheduleWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                data = toUri(Intent.URI_INTENT_SCHEME).toUri()
             }
             views.setRemoteAdapter(R.id.widget_list, serviceIntent)
             views.setEmptyView(R.id.widget_list, R.id.widget_empty)

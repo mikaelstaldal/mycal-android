@@ -3,6 +3,7 @@ package nu.staldal.mycal.widget
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import androidx.core.graphics.toColorInt
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import android.view.View
@@ -141,14 +142,14 @@ private class ScheduleWidgetFactory(
 
 fun cssColorToAndroidColor(name: String?): Int {
     return when (name?.lowercase()) {
-        "dodgerblue" -> Color.parseColor("#1E90FF")
-        "red" -> Color.parseColor("#FF0000")
-        "gold" -> Color.parseColor("#FFD700")
-        "green" -> Color.parseColor("#008000")
-        "orange" -> Color.parseColor("#FFA500")
-        "mediumturquoise" -> Color.parseColor("#48D1CC")
-        "cornflowerblue" -> Color.parseColor("#6495ED")
-        "salmon" -> Color.parseColor("#FA8072")
-        else -> Color.parseColor("#1E90FF") // default to dodgerblue
+        "dodgerblue" -> "#1E90FF".toColorInt()
+        "red" -> "#FF0000".toColorInt()
+        "gold" -> "#FFD700".toColorInt()
+        "green" -> "#008000".toColorInt()
+        "orange" -> "#FFA500".toColorInt()
+        "mediumturquoise" -> "#48D1CC".toColorInt()
+        "cornflowerblue" -> "#6495ED".toColorInt()
+        "salmon" -> "#FA8072".toColorInt()
+        else -> "#1E90FF".toColorInt() // default to dodgerblue
     }
 }

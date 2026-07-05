@@ -2,6 +2,7 @@ package nu.staldal.mycal.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.io.IOException
@@ -20,19 +21,19 @@ class CredentialStore(context: Context) {
         get() = prefs.getString(KEY_PASSWORD, null)
 
     fun save(baseUrl: String, username: String, password: String) {
-        prefs.edit()
-            .putString(KEY_BASE_URL, baseUrl)
-            .putString(KEY_USERNAME, username)
-            .putString(KEY_PASSWORD, password)
-            .apply()
+        prefs.edit {
+            putString(KEY_BASE_URL, baseUrl)
+            putString(KEY_USERNAME, username)
+            putString(KEY_PASSWORD, password)
+        }
     }
 
     fun clear() {
-        prefs.edit()
-            .remove(KEY_BASE_URL)
-            .remove(KEY_USERNAME)
-            .remove(KEY_PASSWORD)
-            .apply()
+        prefs.edit {
+            remove(KEY_BASE_URL)
+            remove(KEY_USERNAME)
+            remove(KEY_PASSWORD)
+        }
     }
 
     fun hasCredentials(): Boolean =

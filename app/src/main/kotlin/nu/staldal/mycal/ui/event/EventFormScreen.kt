@@ -36,6 +36,7 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.Locale
 
 data class ColorOption(val name: String, val color: Color)
 
@@ -352,7 +353,7 @@ private fun RecurrencePicker(
             readOnly = true,
             label = { Text("Repeat") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = freqExpanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = freqExpanded,
@@ -599,7 +600,7 @@ private fun TimePickerField(
             onDismissRequest = { showDialog = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val formatted = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+                    val formatted = String.format(Locale.ROOT, "%02d:%02d", timePickerState.hour, timePickerState.minute)
                     onTimeSelected(formatted)
                     showDialog = false
                 }) {
@@ -637,7 +638,7 @@ private fun ReminderPicker(
             readOnly = true,
             label = { Text("Reminder") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -674,7 +675,7 @@ private fun LocationAutocompleteField(
             value = location,
             onValueChange = { viewModel.updateLocation(it) },
             label = { Text("Location") },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
             singleLine = true,
             isError = locationError != null,
             supportingText = locationError?.let { { Text(it) } },

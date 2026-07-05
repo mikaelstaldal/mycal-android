@@ -37,8 +37,8 @@ fun ScheduleContent(
     state: CalendarUiState,
     onEventClick: (String) -> Unit,
     onLoadMore: (Boolean) -> Unit,
-    scrollToTodayTrigger: Int = 0,
     modifier: Modifier = Modifier,
+    scrollToTodayTrigger: Int = 0,
 ) {
     val dayItems = remember(state.scheduleEvents, state.scheduleStartMonth, state.scheduleEndMonth) {
         buildScheduleDays(state)
@@ -222,9 +222,9 @@ private fun ScheduleEventRow(
 private fun ScheduleEventItem(
     event: EventDto,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     defaultEventColor: Color = Color(0xFF1E90FF),
     calendarColors: Map<Int, String> = emptyMap(),
-    modifier: Modifier = Modifier,
 ) {
     val past = isEventPast(event)
     val bgColor = cssColorToComposeColor(effectiveEventColor(event, calendarColors), defaultEventColor).let {

@@ -34,6 +34,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.util.DateUtils
 import nu.staldal.mycal.util.IcsBuilder
@@ -175,10 +176,10 @@ fun EventDetailScreen(
                             modifier = Modifier.clickable {
                                 val geoUri = if (hasCoordinates) {
                                     val label = Uri.encode(displayText)
-                                    Uri.parse("geo:${event.latitude},${event.longitude}?q=${event.latitude},${event.longitude}($label)")
+                                    "geo:${event.latitude},${event.longitude}?q=${event.latitude},${event.longitude}($label)".toUri()
                                 } else {
                                     val encodedLocation = Uri.encode(event.location)
-                                    Uri.parse("geo:0,0?q=$encodedLocation")
+                                    "geo:0,0?q=$encodedLocation".toUri()
                                 }
                                 val intent = Intent(Intent.ACTION_VIEW, geoUri)
                                 try {
@@ -216,7 +217,7 @@ fun EventDetailScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable {
-                                val uri = Uri.parse(event.url)
+                                val uri = event.url.toUri()
                                 if (uri.scheme == "http" || uri.scheme == "https") {
                                     try {
                                         val intent = Intent(Intent.ACTION_VIEW, uri)

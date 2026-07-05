@@ -267,9 +267,9 @@ private fun SearchResults(
     results: List<EventDto>,
     isSearching: Boolean,
     onEventClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     calendarColors: Map<Int, String> = emptyMap(),
-    modifier: Modifier = Modifier,
 ) {
     if (isSearching) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -406,8 +406,8 @@ private fun DayCell(
     hasEvents: Boolean,
     eventColor: String?,
     onClick: () -> Unit,
-    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     modifier: Modifier = Modifier,
+    defaultEventColor: Color = FALLBACK_EVENT_COLOR,
 ) {
     val bgColor = when {
         isSelected -> MaterialTheme.colorScheme.primary
@@ -459,9 +459,9 @@ private fun DayEventList(
     date: LocalDate,
     events: List<EventDto>,
     onEventClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
     defaultEventColor: Color = FALLBACK_EVENT_COLOR,
     calendarColors: Map<Int, String> = emptyMap(),
-    modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
         Text(
