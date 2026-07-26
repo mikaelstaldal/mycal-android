@@ -114,6 +114,8 @@ class EventRepository(
             url = request.url ?: existing.url,
             // Likewise, the empty string here unlinks the note.
             noteSlug = request.noteSlug ?: existing.noteSlug,
+            // And here it clears the categories.
+            categories = request.categories ?: existing.categories,
             reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
             recurrenceFreq = request.recurrenceFreq?.value ?: existing.recurrenceFreq,
             recurrenceCount = request.recurrenceCount ?: existing.recurrenceCount,

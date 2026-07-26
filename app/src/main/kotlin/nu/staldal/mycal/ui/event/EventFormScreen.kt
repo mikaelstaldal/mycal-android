@@ -300,6 +300,21 @@ fun EventFormScreen(
             }
 
             OutlinedTextField(
+                value = state.categories,
+                onValueChange = { viewModel.updateCategories(it) },
+                label = { Text("Categories") },
+                placeholder = { Text("e.g. Work, Meeting") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = state.categoriesError,
+                supportingText = if (state.categoriesError) {
+                    { Text("Categories are too long") }
+                } else {
+                    { Text("Comma-separated") }
+                },
+            )
+
+            OutlinedTextField(
                 value = state.url,
                 onValueChange = { viewModel.updateUrl(it) },
                 label = { Text("URL") },

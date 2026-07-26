@@ -30,6 +30,9 @@ import kotlin.time.Duration.Companion.milliseconds
 /** `maxLength` of `url` on the create/update event requests in the MyCal OpenAPI spec. */
 private const val MAX_URL_LENGTH = 2000
 
+/** `maxLength` of `categories` on the create/update event requests in the MyCal OpenAPI spec. */
+private const val MAX_CATEGORIES_LENGTH = 500
+
 data class EventDetailState(
     val event: EventDto? = null,
     val isLoading: Boolean = false,
@@ -49,6 +52,8 @@ data class EventDetailState(
 data class EventFormState(
     val title: String = "",
     val description: String = "",
+    /** Comma-separated category tags, as the API stores them. */
+    val categories: String = "",
     val url: String = "",
     val location: String = "",
     val startDate: String = "", // yyyy-MM-dd
@@ -63,6 +68,7 @@ data class EventFormState(
     val isSaving: Boolean = false,
     val error: String? = null,
     val urlError: Boolean = false,
+    val categoriesError: Boolean = false,
     val isSaved: Boolean = false,
     val isLoading: Boolean = false,
     // Recurrence fields
@@ -271,6 +277,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(
                             title = event.title,
                             description = event.description,
+                            categories = event.categories,
                             url = event.url,
                             location = event.location,
                             startDate = startLdt?.toLocalDate()?.toString() ?: "",
@@ -307,6 +314,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun updateTitle(value: String) { _formState.update { it.copy(title = value) } }
     fun updateDescription(value: String) { _formState.update { it.copy(description = value) } }
     fun updateUrl(value: String) { _formState.update { it.copy(url = value, urlError = false) } }
+    fun updateCategories(value: String) { _formState.update { it.copy(categories = value, categoriesError = false) } }
     fun updateLocation(value: String) {
         _formState.update { it.copy(location = value, latitude = null, longitude = null) }
         _locationQuery.value = value
@@ -404,6 +412,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     startTime = if (!form.allDay) startTimeStr else null,
                     endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
+                    // Omitted rather than sent empty, like the URL below: a new event with no
+                    // categories simply has none.
+                    categories = form.categories.takeIf { it.isNotBlank() },
                     // Omitted rather than sent empty: a new event with no URL simply has none.
                     url = form.url.takeIf { it.isNotBlank() },
                     location = form.location,
@@ -450,6 +461,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     startTime = if (!form.allDay) startTimeStr else null,
                     endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
+                    // Always sent: the empty string is how existing categories are removed.
+                    categories = form.categories,
                     // Always sent: the empty string is how an existing URL is removed.
                     url = form.url,
                     location = form.location,
@@ -519,6 +532,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 _formState.update { it.copy(error = "URL must be at most $MAX_URL_LENGTH characters", urlError = true) }
                 return null
             }
+        }
+        // Same reasoning as the URL length check above.
+        if (form.categories.length > MAX_CATEGORIES_LENGTH) {
+            _formState.update {
+                it.copy(error = "Categories must be at most $MAX_CATEGORIES_LENGTH characters", categoriesError = true)
+            }
+            return null
         }
         return if (form.allDay) {
             if (form.endDate < form.startDate) {

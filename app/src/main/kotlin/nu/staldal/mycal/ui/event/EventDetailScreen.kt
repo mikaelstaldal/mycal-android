@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -45,7 +46,7 @@ import nu.staldal.mycal.util.DateUtils
 import nu.staldal.mycal.util.IcsBuilder
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventDetailScreen(
     eventId: String,
@@ -215,6 +216,29 @@ fun EventDetailScreen(
                     if (event.description.isNotBlank()) {
                         Text("Description", style = MaterialTheme.typography.labelLarge)
                         Text(htmlToAnnotatedString(event.description))
+                    }
+
+                    // Stored as one comma-separated string; shown as a tag per entry, like the web
+                    // frontend does.
+                    val categories = event.categories.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                    if (categories.isNotEmpty()) {
+                        Text("Categories", style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            categories.forEach { category ->
+                                Text(
+                                    text = category,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
                     }
 
                     if (event.url.isNotBlank()) {
