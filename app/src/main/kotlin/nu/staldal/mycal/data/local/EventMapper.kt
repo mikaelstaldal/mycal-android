@@ -81,7 +81,8 @@ fun EventEntity.toCreateRequest(): CreateEventRequest = CreateEventRequest(
     allDay = allDay,
     color = color,
     location = location,
-    url = url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+    // Omitted rather than sent empty, like noteSlug: a new event with no URL simply has none.
+    url = url.takeIf { it.isNotBlank() },
     // Omitted rather than sent empty: a new event with no note simply has none.
     noteSlug = noteSlug.takeIf { it.isNotBlank() },
     reminderMinutes = reminderMinutes,
@@ -109,7 +110,8 @@ fun EventEntity.toUpdateRequest(): UpdateEventRequest = UpdateEventRequest(
     allDay = allDay,
     color = color,
     location = location,
-    url = url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+    // Always sent, like noteSlug: the empty string is how an existing URL is removed.
+    url = url,
     // Always sent: the empty string is how an existing note link is removed.
     noteSlug = noteSlug,
     reminderMinutes = reminderMinutes,

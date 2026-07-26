@@ -27,6 +27,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
+/** `maxLength` of `url` on the create/update event requests in the MyCal OpenAPI spec. */
+private const val MAX_URL_LENGTH = 2000
+
 data class EventDetailState(
     val event: EventDto? = null,
     val isLoading: Boolean = false,
@@ -401,7 +404,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     startTime = if (!form.allDay) startTimeStr else null,
                     endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
-                    url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+                    // Omitted rather than sent empty: a new event with no URL simply has none.
+                    url = form.url.takeIf { it.isNotBlank() },
                     location = form.location,
                     allDay = form.allDay,
                     color = form.color,
@@ -446,7 +450,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     startTime = if (!form.allDay) startTimeStr else null,
                     endTime = if (!form.allDay) endTimeStr else null,
                     description = form.description,
-                    url = form.url.takeIf { it.isNotBlank() }?.let { java.net.URI(it) },
+                    // Always sent: the empty string is how an existing URL is removed.
+                    url = form.url,
                     location = form.location,
                     allDay = form.allDay,
                     color = form.color,
@@ -506,6 +511,12 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             val scheme = try { java.net.URL(form.url).protocol } catch (e: Exception) { null }
             if (scheme != "http" && scheme != "https") {
                 _formState.update { it.copy(error = "URL must start with http:// or https://", urlError = true) }
+                return null
+            }
+            // The server enforces this; catching it here keeps an over-long URL from failing later
+            // in a background sync, where there is no form left to report the error on.
+            if (form.url.length > MAX_URL_LENGTH) {
+                _formState.update { it.copy(error = "URL must be at most $MAX_URL_LENGTH characters", urlError = true) }
                 return null
             }
         }
