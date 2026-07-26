@@ -16,6 +16,8 @@ data class EventEntity(
     val location: String,
     val categories: String,
     val url: String,
+    /** Slug of the linked MyNotes note, or empty when none. Resolved against the MyNotes server. */
+    val noteSlug: String,
     val reminderMinutes: Int,
     val latitude: Double?,
     val longitude: Double?,

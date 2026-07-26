@@ -22,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import nu.staldal.mycal.data.api.MyNotesClient
 import nu.staldal.mycal.ui.event.EVENT_COLORS
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -116,6 +117,29 @@ fun SettingsScreen(
                     else MaterialTheme.colorScheme.error,
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Nothing to configure: notes come from the MyNotes app on this device, which brings
+            // its own server and credentials. Reported anyway, because "why is the Note field
+            // missing" is otherwise unanswerable from inside this app.
+            Text("MyNotes", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = when (state.mynotesAvailability) {
+                    MyNotesClient.Availability.AVAILABLE ->
+                        "Connected to the MyNotes app — events can link a note."
+                    MyNotesClient.Availability.NOT_INSTALLED ->
+                        "The MyNotes app is not installed on this device. Install it to link notes to events."
+                    MyNotesClient.Availability.NOT_PERMITTED ->
+                        "The MyNotes app did not grant access. Both apps must be signed with the same key."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (state.mynotesAvailability.isAvailable) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

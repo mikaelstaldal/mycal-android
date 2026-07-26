@@ -24,10 +24,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.ActivityNotFoundException
+import nu.staldal.mycal.data.api.MyNotesClient
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.ui.calendar.cssColorToComposeColor
 import java.time.Instant
@@ -273,6 +277,12 @@ fun EventFormScreen(
                     onUntilChanged = { viewModel.updateRecurrenceUntil(it) },
                     onByDayChanged = { viewModel.updateRecurrenceByDay(it) },
                 )
+            }
+
+            // MyNotes note link — only when the MyNotes app is installed and readable. An event
+            // that already links a note keeps the picker, so the link can still be removed.
+            if (state.mynotesAvailability.isAvailable || state.noteSlug.isNotBlank()) {
+                NotePicker(viewModel = viewModel, noteSlug = state.noteSlug)
             }
 
             // Color picker
@@ -652,6 +662,79 @@ private fun ReminderPicker(
                         expanded = false
                     },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Links one MyNotes note to the event. An event stores just the note's slug; the note itself stays
+ * in the MyNotes app on this device, which is also where the titles searched here come from.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotePicker(
+    viewModel: EventViewModel,
+    noteSlug: String,
+) {
+    val context = LocalContext.current
+    if (noteSlug.isNotBlank()) {
+        Text("Note", style = MaterialTheme.typography.labelLarge)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = noteSlug,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.weight(1f).clickable {
+                    try {
+                        context.startActivity(
+                            MyNotesClient.viewIntent(context, MyNotesClient.noteUri(noteSlug))
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        // MyNotes went away between the check and the tap
+                    }
+                },
+            )
+            TextButton(onClick = { viewModel.unlinkNote() }) {
+                Text("Unlink", color = MaterialTheme.colorScheme.error)
+            }
+        }
+        return
+    }
+
+    val query by viewModel.noteQuery.collectAsState()
+    val suggestions by viewModel.noteSuggestions.collectAsState()
+
+    ExposedDropdownMenuBox(
+        expanded = suggestions.isNotEmpty(),
+        onExpandedChange = { /* controlled by suggestions */ },
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { viewModel.updateNoteQuery(it) },
+            label = { Text("Note") },
+            placeholder = { Text("Search MyNotes by title…") },
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            singleLine = true,
+            supportingText = if (query.isNotBlank() && suggestions.isEmpty()) {
+                { Text("No matching note in MyNotes") }
+            } else null,
+        )
+        if (suggestions.isNotEmpty()) {
+            ExposedDropdownMenu(
+                expanded = true,
+                onDismissRequest = { viewModel.updateNoteQuery("") },
+            ) {
+                suggestions.forEach { note ->
+                    DropdownMenuItem(
+                        text = { Text(note.title, maxLines = 2) },
+                        onClick = { viewModel.selectNoteSuggestion(note) },
+                    )
+                }
             }
         }
     }

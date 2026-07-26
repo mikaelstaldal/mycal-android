@@ -73,6 +73,7 @@ class EventRepository(
             color = request.color ?: "",
             location = request.location ?: "",
             url = request.url?.toString() ?: "",
+            noteSlug = request.noteSlug ?: "",
             reminderMinutes = request.reminderMinutes ?: 0,
             latitude = request.latitude,
             longitude = request.longitude,
@@ -110,6 +111,8 @@ class EventRepository(
             color = request.color ?: existing.color,
             location = request.location ?: existing.location,
             url = request.url?.toString() ?: existing.url,
+            // Unlike the others, the empty string is meaningful here — it unlinks the note.
+            noteSlug = request.noteSlug ?: existing.noteSlug,
             reminderMinutes = request.reminderMinutes ?: existing.reminderMinutes,
             recurrenceFreq = request.recurrenceFreq?.value ?: existing.recurrenceFreq,
             recurrenceCount = request.recurrenceCount ?: existing.recurrenceCount,

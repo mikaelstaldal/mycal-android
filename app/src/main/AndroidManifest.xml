@@ -9,6 +9,20 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!--
+      Reads the note linked to an event out of the MyNotes app on this device, instead of talking
+      to the MyNotes server. MyNotes declares this permission `signature`, so it is granted at
+      install time only when both apps are signed with the same key — and the integration simply
+      stays hidden when they are not, or when MyNotes is not installed.
+    -->
+    <uses-permission android:name="nu.staldal.mynotes.permission.READ_NOTES" />
+
+    <!-- Package visibility (Android 11+): without this MyNotes is invisible to us. -->
+    <queries>
+        <provider android:authorities="nu.staldal.mynotes.notes" />
+        <package android:name="nu.staldal.mynotes" />
+    </queries>
+
     <application
         android:name=".MyCalApplication"
         android:allowBackup="false"

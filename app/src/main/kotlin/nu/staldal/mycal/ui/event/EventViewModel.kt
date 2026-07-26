@@ -9,17 +9,22 @@ import nu.staldal.mycal.MyCalApplication
 import nu.staldal.mycal.data.EventRepository
 import nu.staldal.mycal.data.api.CreateEventRequest
 import nu.staldal.mycal.data.api.EventDto
+import nu.staldal.mycal.data.api.MyNotesClient
 import nu.staldal.mycal.data.api.NominatimClient
 import nu.staldal.mycal.data.api.NominatimPlace
+import nu.staldal.mycal.data.api.NoteSummary
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.preferences.UserPreferences
 import nu.staldal.mycal.data.sync.SyncWorker
 import nu.staldal.mycal.notification.NotificationScheduler
+import nu.staldal.mycal.ui.note.NoteImageFetcher
 import nu.staldal.mycal.widget.ScheduleWidget
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 data class EventDetailState(
@@ -29,6 +34,13 @@ data class EventDetailState(
     val error: String? = null,
     val isDeleted: Boolean = false,
     val defaultEventColor: String = "dodgerblue",
+    /** Whether the MyNotes app on this device can be read, and if not, why. */
+    val mynotesAvailability: MyNotesClient.Availability = MyNotesClient.Availability.NOT_INSTALLED,
+    /** The linked note, read from the MyNotes app — MyCal keeps no copy of it. */
+    val noteTitle: String = "",
+    val noteContent: String = "",
+    val noteLoading: Boolean = false,
+    val noteError: String? = null,
 )
 
 data class EventFormState(
@@ -61,6 +73,10 @@ data class EventFormState(
     // Recurring instance info
     val parentId: String? = null,
     val isRecurringInstance: Boolean = false,
+    // MyNotes link
+    val noteSlug: String = "",
+    /** Whether the MyNotes app on this device can be read, and if not, why. */
+    val mynotesAvailability: MyNotesClient.Availability = MyNotesClient.Availability.NOT_INSTALLED,
 )
 
 class EventViewModel(application: Application) : AndroidViewModel(application) {
@@ -80,11 +96,38 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _locationQuery = MutableStateFlow("")
 
+    /** Title-prefix search against MyNotes, for the note picker in the event form. */
+    private val _noteQuery = MutableStateFlow("")
+    val noteQuery: StateFlow<String> = _noteQuery.asStateFlow()
+
+    private val _noteSuggestions = MutableStateFlow<List<NoteSummary>>(emptyList())
+    val noteSuggestions: StateFlow<List<NoteSummary>> = _noteSuggestions.asStateFlow()
+
     init {
         viewModelScope.launch {
             prefs.defaultEventColor.collect { color ->
                 _detailState.update { it.copy(defaultEventColor = color) }
             }
+        }
+
+        // Whether MyNotes is installed can change under a running app, so it is re-read on each
+        // event rather than cached once.
+        refreshMyNotesAvailability()
+
+        @OptIn(FlowPreview::class)
+        viewModelScope.launch {
+            _noteQuery
+                .drop(1) // skip initial empty value
+                .debounce(300.milliseconds)
+                .collectLatest { query ->
+                    if (query.isBlank()) {
+                        _noteSuggestions.value = emptyList()
+                        return@collectLatest
+                    }
+                    _noteSuggestions.value = withContext(Dispatchers.IO) {
+                        MyNotesClient.searchNotes(getApplication(), query.trim())
+                    }
+                }
         }
 
         @OptIn(FlowPreview::class)
@@ -128,6 +171,21 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         return repository
     }
 
+    /**
+     * Resolves the images a rendered note embeds, by reading them out of the MyNotes app. Called on
+     * the WebView's own background thread, so the cross-process read happens there directly.
+     */
+    val noteImageFetcher = NoteImageFetcher { ref ->
+        MyNotesClient.fetchImage(getApplication(), ref)
+    }
+
+    /** Re-checks whether the MyNotes app is installed and readable, and reflects it in both states. */
+    private fun refreshMyNotesAvailability() {
+        val availability = MyNotesClient.availability(getApplication())
+        _detailState.update { it.copy(mynotesAvailability = availability) }
+        _formState.update { it.copy(mynotesAvailability = availability) }
+    }
+
     fun loadEvent(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
@@ -136,11 +194,47 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 val event = repo.getEvent(id)
                 if (event != null) {
                     _detailState.update { it.copy(event = event, isLoading = false) }
+                    loadLinkedNote(event.noteSlug)
                 } else {
                     _detailState.update { it.copy(isLoading = false, error = "Event not found") }
                 }
             } catch (e: Exception) {
                 _detailState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Reads the note linked to the event being viewed out of the MyNotes app. MyCal keeps no copy
+     * of any note — only the slug — so this works offline exactly when MyNotes has already synced
+     * the note, which is the whole point of going through the app rather than its server.
+     */
+    private suspend fun loadLinkedNote(slug: String) {
+        _detailState.update { it.copy(noteTitle = "", noteContent = "", noteError = null) }
+        if (slug.isBlank()) return
+        refreshMyNotesAvailability()
+        val availability = MyNotesClient.availability(getApplication())
+        if (!availability.isAvailable) return // the UI explains an unavailable MyNotes itself
+        _detailState.update { it.copy(noteLoading = true) }
+        val note = withContext(Dispatchers.IO) { MyNotesClient.getNote(getApplication(), slug) }
+        _detailState.update {
+            when {
+                note == null -> it.copy(
+                    noteLoading = false,
+                    noteError = "MyNotes does not have a note '$slug'",
+                )
+                !note.hasFullContent -> it.copy(
+                    noteLoading = false,
+                    noteTitle = note.title,
+                    // MyNotes has the note listed but has never downloaded its body; it will after
+                    // its next sync, and there is nothing MyCal can do about it from here.
+                    noteError = "MyNotes has not downloaded this note's content yet",
+                )
+                else -> it.copy(
+                    noteLoading = false,
+                    noteTitle = note.title,
+                    noteContent = note.content,
+                )
             }
         }
     }
@@ -195,6 +289,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             recurrenceByMonth = event.recurrenceByMonth,
                             parentId = event.parentId,
                             isRecurringInstance = event.parentId != null,
+                            noteSlug = event.noteSlug,
                         )
                     }
                 } else {
@@ -224,6 +319,25 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         _locationSuggestions.value = emptyList()
     }
     fun clearLocationSuggestions() { _locationSuggestions.value = emptyList() }
+
+    fun updateNoteQuery(value: String) {
+        _noteQuery.value = value
+    }
+
+    fun selectNoteSuggestion(note: NoteSummary) {
+        _formState.update { it.copy(noteSlug = note.slug) }
+        clearNoteSearch()
+    }
+
+    fun unlinkNote() {
+        _formState.update { it.copy(noteSlug = "") }
+        clearNoteSearch()
+    }
+
+    private fun clearNoteSearch() {
+        _noteQuery.value = ""
+        _noteSuggestions.value = emptyList()
+    }
     fun updateStartDate(value: String) {
         _formState.update {
             if (it.startDate.isNotEmpty() && it.endDate.isNotEmpty()) {
@@ -303,6 +417,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     recurrenceByDay = form.recurrenceByDay,
                     recurrenceByMonthday = form.recurrenceByMonthday,
                     recurrenceByMonth = form.recurrenceByMonth,
+                    noteSlug = form.noteSlug.takeIf { it.isNotBlank() },
                 )
                 val eventId = repo.createEvent(request)
                 scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
@@ -347,6 +462,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     recurrenceByDay = if (!form.isRecurringInstance) form.recurrenceByDay else null,
                     recurrenceByMonthday = if (!form.isRecurringInstance) form.recurrenceByMonthday else null,
                     recurrenceByMonth = if (!form.isRecurringInstance) form.recurrenceByMonth else null,
+                    // Always sent: the empty string is how an existing note link is removed.
+                    noteSlug = form.noteSlug,
                 )
                 repo.updateEvent(id, request)
                 scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import nu.staldal.mycal.data.api.DefaultApi
+import nu.staldal.mycal.data.api.MyNotesClient
 import nu.staldal.mycal.data.api.RetrofitClient
 import nu.staldal.mycal.data.api.UpdateCalendarRequest
 import nu.staldal.mycal.data.preferences.UserPreferences
@@ -19,6 +20,8 @@ data class SettingsUiState(
     val isTesting: Boolean = false,
     val defaultEventColor: String = "dodgerblue",
     val error: String? = null,
+    /** Whether the MyNotes app on this device can be read, and if not, why. */
+    val mynotesAvailability: MyNotesClient.Availability = MyNotesClient.Availability.NOT_INSTALLED,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,10 +33,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             prefs.serverConfig.first().let { config ->
                 _uiState.update {
-                    it.copy(baseUrl = config.baseUrl, username = config.username, password = config.password)
+                    it.copy(
+                        baseUrl = config.baseUrl,
+                        username = config.username,
+                        password = config.password,
+                    )
                 }
             }
         }
+        _uiState.update { it.copy(mynotesAvailability = MyNotesClient.availability(application)) }
         viewModelScope.launch {
             prefs.defaultEventColor.first().let { color ->
                 _uiState.update { it.copy(defaultEventColor = color) }

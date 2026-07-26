@@ -16,6 +16,8 @@ data class EventDto(
     val location: String = "",
     val categories: String = "",
     val url: String = "",
+    /** Slug of the linked MyNotes note, or empty when none. */
+    val noteSlug: String = "",
     val reminderMinutes: Int = 0,
     val latitude: Double? = null,
     val longitude: Double? = null,

@@ -1,0 +1,92 @@
+package nu.staldal.mycal.ui.note
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/**
+ * Covers the two pure pieces of the render-kit WebView host: the Markdown rewrite that lets an
+ * image MyNotes has not uploaded yet survive the renderer's sanitization, and the request
+ * allow-list that decides which requests displaying a note is allowed to make.
+ *
+ * The Markdown dialect itself is not tested here: it is not implemented in this app. Its tests live
+ * with the implementation, in the mynotes repo (web/ts/markdown.test.mjs).
+ */
+class NoteRendererWebViewTest {
+
+    // --- local-artifact rewrite ---------------------------------------------
+
+    @Test
+    fun `local artifact reference becomes a root-relative path`() {
+        val id = "3f2a1b4c-0d5e-4a6b-8c9d-0e1f2a3b4c5d"
+        assertEquals(
+            "![image](/local-artifact/$id)",
+            rewriteLocalArtifactRefs("![image](local-artifact://$id)"),
+        )
+    }
+
+    @Test
+    fun `every local artifact reference is rewritten`() {
+        val rewritten = rewriteLocalArtifactRefs(
+            "![a](local-artifact://aaa) and ![b](local-artifact://bbb)"
+        )
+        assertEquals("![a](/local-artifact/aaa) and ![b](/local-artifact/bbb)", rewritten)
+    }
+
+    @Test
+    fun `markdown without local artifacts is untouched`() {
+        val md = "# Title\n\n![remote](/api/v1/artifacts/${"a".repeat(64)})\n"
+        assertEquals(md, rewriteLocalArtifactRefs(md))
+    }
+
+    // --- request allow-list --------------------------------------------------
+
+    @Test
+    fun `rewritten local artifact path resolves back to its reference`() {
+        assertEquals("local-artifact://abc-123", noteImageRefFor("/local-artifact/abc-123"))
+    }
+
+    @Test
+    fun `root-relative artifact url resolves`() {
+        val sha = "0".repeat(64)
+        assertEquals("/api/v1/artifacts/$sha", noteImageRefFor("/api/v1/artifacts/$sha"))
+    }
+
+    @Test
+    fun `artifact url under a server base path resolves`() {
+        // MyNotes rewrites an uploaded image to an absolute URL against its own base, whose path
+        // carries a prefix when that server is deployed under a subpath.
+        val sha = "a1b2c3d4e5f6".repeat(5) + "abcd"
+        assertEquals(64, sha.length)
+        assertEquals("/api/v1/artifacts/$sha", noteImageRefFor("/mynotes/api/v1/artifacts/$sha"))
+    }
+
+    @Test
+    fun `a non-image path is not resolvable`() {
+        assertNull(noteImageRefFor("/notes/some-note"))
+        assertNull(noteImageRefFor("/"))
+        assertNull(noteImageRefFor("/evil.example/tracker.png"))
+        assertNull(noteImageRefFor("/api/v1/notes/some-note"))
+    }
+
+    @Test
+    fun `an icon request is not resolvable`() {
+        // Known icons are inlined as <svg> by the renderer; an escaping request is for an icon the
+        // vendored kit does not have, and is blocked rather than fetched — as in the MyNotes app.
+        assertNull(noteImageRefFor("/api/v1/icons/lucide/anchor"))
+    }
+
+    @Test
+    fun `a malformed artifact sha is not resolvable`() {
+        assertNull(noteImageRefFor("/api/v1/artifacts/tooshort"))
+        assertNull(noteImageRefFor("/api/v1/artifacts/${"A".repeat(64)}")) // hex is lowercase
+        assertNull(noteImageRefFor("/api/v1/artifacts/${"0".repeat(64)}/extra"))
+    }
+
+    @Test
+    fun `a malformed local artifact path is not resolvable`() {
+        assertNull(noteImageRefFor("/local-artifact/"))
+        assertNull(noteImageRefFor("/local-artifact/a/b"))
+        assertNull(noteImageRefFor("/prefixed/local-artifact/abc"))
+    }
+}

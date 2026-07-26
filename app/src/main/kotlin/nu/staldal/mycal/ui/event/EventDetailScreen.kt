@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
@@ -35,7 +36,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import androidx.compose.ui.graphics.luminance
 import nu.staldal.mycal.data.api.EventDto
+import nu.staldal.mycal.data.api.MyNotesClient
+import nu.staldal.mycal.ui.note.NoteImageFetcher
+import nu.staldal.mycal.ui.note.NoteRendererWebView
 import nu.staldal.mycal.util.DateUtils
 import nu.staldal.mycal.util.IcsBuilder
 import java.io.File
@@ -259,6 +264,19 @@ fun EventDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+
+                    if (event.noteSlug.isNotBlank()) {
+                        HorizontalDivider()
+                        LinkedNote(
+                            availability = state.mynotesAvailability,
+                            slug = event.noteSlug,
+                            title = state.noteTitle,
+                            content = state.noteContent,
+                            isLoading = state.noteLoading,
+                            error = state.noteError,
+                            imageFetcher = viewModel.noteImageFetcher,
+                        )
+                    }
                 }
             }
         }
@@ -350,6 +368,89 @@ fun EventDetailScreen(
                 }
             },
         )
+    }
+}
+
+/**
+ * The MyNotes note linked to this event: a way into the MyNotes app, and the note's content
+ * rendered by the MyNotes render kit (see [NoteRendererWebView]) so it looks exactly as it does
+ * there.
+ *
+ * The note is read from the MyNotes app on this device, not from a server, so it is available
+ * offline whenever MyNotes has it. Without that app the link is still shown, as a plain slug with
+ * an explanation: an event that carries a note should not look like it doesn't.
+ */
+@Composable
+private fun LinkedNote(
+    availability: MyNotesClient.Availability,
+    slug: String,
+    title: String,
+    content: String,
+    isLoading: Boolean,
+    error: String?,
+    imageFetcher: NoteImageFetcher,
+) {
+    val context = LocalContext.current
+    val available = availability.isAvailable
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = if (available) {
+            Modifier.clickable {
+                try {
+                    context.startActivity(MyNotesClient.viewIntent(context, MyNotesClient.noteUri(slug)))
+                } catch (_: ActivityNotFoundException) {
+                    // MyNotes went away between the check and the tap
+                }
+            }
+        } else {
+            Modifier
+        },
+    ) {
+        if (available) {
+            Icon(
+                Icons.AutoMirrored.Default.OpenInNew,
+                contentDescription = "Open in MyNotes",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        Text(text = "Note: ", style = MaterialTheme.typography.labelLarge)
+        Text(
+            text = title.ifBlank { slug },
+            color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            textDecoration = if (available) TextDecoration.Underline else null,
+        )
+    }
+
+    val unavailableReason = when (availability) {
+        MyNotesClient.Availability.AVAILABLE -> null
+        MyNotesClient.Availability.NOT_INSTALLED ->
+            "Install the MyNotes app to read this note."
+        MyNotesClient.Availability.NOT_PERMITTED ->
+            "The MyNotes app did not grant access. Both apps must be signed with the same key."
+    }
+
+    when {
+        unavailableReason != null -> Text(
+            unavailableReason,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        isLoading -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+        error != null -> Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        content.isNotBlank() -> {
+            val colorScheme = MaterialTheme.colorScheme
+            NoteRendererWebView(
+                markdown = content,
+                dark = colorScheme.background.luminance() < 0.5f,
+                background = colorScheme.background,
+                onBackground = colorScheme.onBackground,
+                linkColor = colorScheme.primary,
+                imageFetcher = imageFetcher,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

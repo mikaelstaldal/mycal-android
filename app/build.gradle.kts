@@ -1,3 +1,7 @@
+// Not java.util.Properties inline below: in the Kotlin DSL `java` is the Java plugin's extension,
+// so a fully-qualified reference to the package does not resolve.
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -25,9 +29,57 @@ openApiGenerate {
     generateModelDocumentation.set(false)
 }
 
+// Signing key shared with the MyNotes app (../mynotes-android), whose NotesProvider this app reads
+// the note linked to an event from. That provider is guarded by a signature-level permission, so
+// the two apps must be signed with the same key for it to be granted. The default
+// ~/.android/debug.keystore would satisfy that, but it is a poor trust anchor: world-readable,
+// fixed password "android", and shared by every debug APK built on the machine.
+//
+// Configure it in local.properties (kept out of version control), or through the matching
+// environment variables for CI:
+//
+//     debugKeystore=/path/to/staldal-apps.keystore   DEBUG_KEYSTORE
+//     debugKeystorePassword=…                        DEBUG_KEYSTORE_PASSWORD
+//     debugKeyAlias=staldal-apps                     DEBUG_KEY_ALIAS
+//     debugKeyPassword=…                             DEBUG_KEY_PASSWORD
+//
+// The values must match the ones MyNotes is built with. Absent or incomplete, the build still works
+// but falls back to the default debug key and says so; the integration keeps working (both apps
+// fall back alike) — it is the trust boundary that weakens, which must not happen quietly.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun signingProperty(key: String, env: String): String? =
+    (localProperties.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "nu.staldal.mycal"
     compileSdk = 36
+
+    signingConfigs {
+        // Overrides the built-in debug config, which debug and androidTest builds already use.
+        getByName("debug") {
+            val store = signingProperty("debugKeystore", "DEBUG_KEYSTORE")?.let(::file)
+            val storePw = signingProperty("debugKeystorePassword", "DEBUG_KEYSTORE_PASSWORD")
+            val alias = signingProperty("debugKeyAlias", "DEBUG_KEY_ALIAS")
+            val keyPw = signingProperty("debugKeyPassword", "DEBUG_KEY_PASSWORD")
+            if (store?.exists() == true && storePw != null && alias != null && keyPw != null) {
+                storeFile = store
+                storeType = "PKCS12"
+                storePassword = storePw
+                keyAlias = alias
+                keyPassword = keyPw
+            } else {
+                logger.warn(
+                    "MyCal: no shared debug signing key configured (see app/build.gradle.kts); " +
+                        "falling back to the default debug keystore. MyNotes must be built with the " +
+                        "same key, or the note integration will report that access was denied."
+                )
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "nu.staldal.mycal"
@@ -134,6 +186,11 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.security.crypto)
+    // The note linked to an event is rendered by the vendored MyNotes render kit
+    // in a WebView (assets/renderer/, refreshed by tools/sync-renderer.sh), not
+    // on the JVM — there is no Markdown implementation here. androidx.webkit
+    // supplies WebViewAssetLoader, which serves that kit over a real origin.
+    implementation(libs.androidx.webkit)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
