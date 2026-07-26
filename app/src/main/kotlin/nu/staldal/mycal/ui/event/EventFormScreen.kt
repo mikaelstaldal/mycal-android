@@ -135,6 +135,11 @@ fun EventFormScreen(
     }
 
     Scaffold(
+        // Under edge-to-edge the window is not resized by the keyboard, so without the ime inset
+        // the form would keep its full height and the field being edited could end up behind the
+        // keyboard. Adding it shrinks the scrolling area to the space above the keyboard instead,
+        // and the focused field is scrolled back into view.
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -188,30 +193,6 @@ fun EventFormScreen(
                 isError = state.error != null && state.title.isBlank(),
             )
 
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = { viewModel.updateDescription(it) },
-                label = { Text("Description") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5,
-            )
-
-            OutlinedTextField(
-                value = state.url,
-                onValueChange = { viewModel.updateUrl(it) },
-                label = { Text("URL") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                isError = state.urlError,
-                supportingText = if (state.urlError) {
-                    { Text("Must be a valid http:// or https:// URL") }
-                } else null,
-            )
-
-            LocationAutocompleteField(viewModel = viewModel, location = state.location)
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -257,12 +238,6 @@ fun EventFormScreen(
                 )
             }
 
-            // Reminder picker
-            ReminderPicker(
-                selectedMinutes = state.reminderMinutes,
-                onMinutesSelected = { viewModel.updateReminderMinutes(it) },
-            )
-
             // Recurrence picker — hide for recurring instance edits
             if (!state.isRecurringInstance) {
                 RecurrencePicker(
@@ -279,11 +254,13 @@ fun EventFormScreen(
                 )
             }
 
-            // MyNotes note link — only when the MyNotes app is installed and readable. An event
-            // that already links a note keeps the picker, so the link can still be removed.
-            if (state.mynotesAvailability.isAvailable || state.noteSlug.isNotBlank()) {
-                NotePicker(viewModel = viewModel, noteSlug = state.noteSlug)
-            }
+            // Reminder picker
+            ReminderPicker(
+                selectedMinutes = state.reminderMinutes,
+                onMinutesSelected = { viewModel.updateReminderMinutes(it) },
+            )
+
+            LocationAutocompleteField(viewModel = viewModel, location = state.location)
 
             // Color picker
             Text("Color", style = MaterialTheme.typography.labelLarge)
@@ -320,6 +297,34 @@ fun EventFormScreen(
                         )
                     }
                 }
+            }
+
+            OutlinedTextField(
+                value = state.url,
+                onValueChange = { viewModel.updateUrl(it) },
+                label = { Text("URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                isError = state.urlError,
+                supportingText = if (state.urlError) {
+                    { Text("Must be a valid http:// or https:// URL") }
+                } else null,
+            )
+
+            OutlinedTextField(
+                value = state.description,
+                onValueChange = { viewModel.updateDescription(it) },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5,
+            )
+
+            // MyNotes note link — only when the MyNotes app is installed and readable. An event
+            // that already links a note keeps the picker, so the link can still be removed.
+            if (state.mynotesAvailability.isAvailable || state.noteSlug.isNotBlank()) {
+                NotePicker(viewModel = viewModel, noteSlug = state.noteSlug)
             }
 
             state.error?.let { error ->
