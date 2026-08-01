@@ -76,8 +76,10 @@ md.renderer.rules.emoji = (tokens, idx) => tokens[idx].content;
 // its <li>/<ul>/<ol> gain the GitHub-compatible task-list classes for styling.
 // Implemented as a core rule over the token stream (the same approach as
 // markdown-it-task-lists) rather than a plugin, so it stays self-contained and
-// npm-free. Checkboxes are always disabled: the read view is render-only, so a
-// task-list checkbox is a status marker, not an interactive control.
+// npm-free. A checkbox is a status marker, not an interactive control, so it is
+// disabled — except under renderNote's `interactiveTasks` (see RenderOptions),
+// where the web UI turns a click into an unsaved edit and each checkbox instead
+// carries the source line its marker sits on.
 const TASK_MARKER_RE = /^\[[ xX]\] /;
 function taskListItemClass(token, cls) {
     const idx = token.attrIndex('class');
@@ -104,6 +106,7 @@ function parentListToken(tokens, itemOpen) {
 }
 md.core.ruler.after('inline', 'task_lists', (state) => {
     const tokens = state.tokens;
+    const interactive = state.env?.interactiveTasks === true;
     for (let i = 2; i < tokens.length; i++) {
         const inline = tokens[i];
         if (inline.type !== 'inline' ||
@@ -113,9 +116,19 @@ md.core.ruler.after('inline', 'task_lists', (state) => {
             continue;
         }
         const checked = inline.content.charCodeAt(1) !== 0x20; // '[x]'/'[X]' vs '[ ]'
+        // The 0-based source line the item's marker sits on — what a click has to
+        // flip in the Markdown (util/tasks.ts). Taken from the paragraph holding the
+        // marker, not from the list item: an item whose content starts on the line
+        // after its bullet ("-\n  [ ] todo") begins a line earlier than its marker
+        // does. The map is absolute in the (newline-normalized) source, so a task
+        // nested in a list or a blockquote maps back just as well.
+        const line = interactive ? tokens[i - 1].map?.[0] ?? -1 : -1;
+        // Interactive checkboxes are left enabled — a disabled control dispatches no
+        // click at all, so there would be nothing to act on.
+        const modeAttr = line >= 0 ? ` data-task-line="${line}"` : ' disabled';
         const box = new state.Token('html_inline', '', 0);
         box.content =
-            `<input class="task-list-item-checkbox" type="checkbox" disabled${checked ? ' checked' : ''}>`;
+            `<input class="task-list-item-checkbox" type="checkbox"${modeAttr}${checked ? ' checked' : ''}>`;
         // Prepend the checkbox and drop the "[ ]"/"[x]" marker (3 chars) from both
         // the flattened content and the leading text token.
         inline.children.unshift(box);
@@ -561,6 +574,66 @@ md.block.ruler.after('blockquote', 'math_block', (state, startLine, endLine, sil
 md.renderer.rules.math_inline = (tokens, idx) => renderMathML(tokens[idx].content, false);
 md.renderer.rules.math_display = (tokens, idx) => renderMathML(tokens[idx].content, true);
 md.renderer.rules.math_block = (tokens, idx) => renderMathML(tokens[idx].content, true) + '\n';
+// Whitespace that is not backslash-escaped: an even number of backslashes (none
+// included) before it. Mirrors markdown-it-sub/markdown-it-sup.
+const UNESCAPED_SPACE_RE = /(^|[^\\])(\\\\)*\s/;
+// Subscript (H~2~O) and Superscript (2^10^). Pandoc-style: unescaped whitespace
+// between the delimiters is not allowed, so ordinary prose using a lone `~` or
+// `^` stays literal; `\ ` is the way to get a space in. Nesting is supported
+// (~sub^sup^~) — unlike markdown-it-sub/sup, which emit their content as plain
+// text, the content here is parsed as inline Markdown. Escaped delimiters (\~,
+// \^) stay literal.
+//
+// The scan for the closing delimiter advances with `inline.skipToken`, as
+// markdown-it-sub/sup do, rather than character by character: a delimiter that
+// belongs to another inline construct — a code span, an inline math span, an
+// escape — is stepped over as part of that construct instead of closing the
+// sub/sup, so `` ~a`b~c`d `` and `x^2=$a^b$` keep their code span and their
+// math. That makes the rule's position in the inline ruler matter: it is
+// registered after `emphasis` (again as markdown-it-sub/sup do) so that every
+// rule whose token may contain a `~`/`^` — backticks, strikethrough, emphasis,
+// and the math rules registered after `escape` — is tried first while skipping.
+function subSup(state, silent, delim, tag) {
+    const start = state.pos;
+    const max = state.posMax;
+    if (state.src.charCodeAt(start) !== delim)
+        return false;
+    // Never consumed while another rule scans with skipToken: a nested ~…~/^…^ is
+    // parsed when this rule's own content is parsed, not while looking for its end.
+    if (silent)
+        return false;
+    let found = false;
+    state.pos = start + 1;
+    while (state.pos < max) {
+        if (state.src.charCodeAt(state.pos) === delim) {
+            found = true;
+            break;
+        }
+        state.md.inline.skipToken(state);
+    }
+    const raw = found ? state.src.slice(start + 1, state.pos) : '';
+    if (!found || raw === '' || UNESCAPED_SPACE_RE.test(raw)) {
+        state.pos = start;
+        return false;
+    }
+    const end = state.pos;
+    state.push(tag + '_open', tag, 1);
+    // Markdown's own escapes are resolved by the nested parse below; `\ ` and
+    // `\<TAB>` are not Markdown escapes (a backslash before whitespace is
+    // literal), so this rule's own whitespace escaping is undone here.
+    const content = raw.replace(/\\([ \t])/g, '$1');
+    const tokens = [];
+    state.md.inline.parse(content, state.md, state.env, tokens);
+    for (const t of tokens) {
+        t.level += state.level;
+        state.tokens.push(t);
+    }
+    state.push(tag + '_close', tag, -1);
+    state.pos = end + 1;
+    return true;
+}
+md.inline.ruler.after('emphasis', 'sub', (state, silent) => subSup(state, silent, 0x7E /* ~ */, 'sub'));
+md.inline.ruler.after('sub', 'sup', (state, silent) => subSup(state, silent, 0x5E /* ^ */, 'sup'));
 // Built-in Lucide icons are stored as compact Markdown image references
 // (![name](<base>/api/v1/icons/lucide/<name>)), but rendering them as <img> loads
 // the SVG in its own document context, where it can't inherit the note's text
@@ -772,6 +845,10 @@ DOMPurify.addHook('uponSanitizeElement', (node, data) => {
         el.parentNode?.removeChild(el);
     }
 });
+// True only while renderNote() is rendering with `interactiveTasks`. DOMPurify's
+// hooks are global and cannot see markdown-it's env, so this bridges the two for
+// the duration of that (synchronous) call.
+let interactiveTasks = false;
 // Open external links in a new tab; keep internal links in the same tab.
 // Also force task-list checkboxes to stay non-interactive (read-only view).
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -783,11 +860,52 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
         }
     }
     else if (node.tagName === 'INPUT') {
-        node.setAttribute('disabled', '');
+        // The sole exception to the read-only rule: an interactive-mode task-list
+        // checkbox, recognised by the source line the task_lists rule tagged it
+        // with. A plain <input> from a note's embedded HTML carries none and so
+        // stays disabled, as it is in every other mode. (Embedded HTML that copies
+        // the attribute would be enabled too — harmless: what a click does is
+        // decided by re-reading the Markdown at that line, see util/tasks.ts.)
+        if (interactiveTasks && node.hasAttribute('data-task-line')) {
+            node.removeAttribute('disabled');
+        }
+        else {
+            node.setAttribute('disabled', '');
+        }
     }
 });
-// Allow data: only on img@src with the canonical raster MIME set; strip it everywhere else.
+// A stored artifact is referenced from note content by the app-defined
+// `artifact:` URL scheme carrying its SHA-256 (`![alt](artifact:<sha256>)`,
+// what the editor inserts and the demo seed and any import carry). The
+// reference is deployment-independent — resolving it to a URL is this
+// pipeline's job, and it is done here rather than in the markdown-it image rule
+// so a raw <img> in embedded HTML resolves identically. The target is the
+// artifact endpoint under the deployment's base path: root-relative would
+// ignore <base href> and so leave a subpath deployment altogether, 404ing at the
+// origin root and, in demo mode, falling outside the service worker's scope
+// (which is exactly that subpath), so nothing could answer it.
+//
+// The pattern is the strict one the write-time gate enforces
+// (internal/sanitize.ArtifactRef), so nothing beyond a bare digest — no path,
+// query or fragment — is ever spliced into the URL. Anything else keeps the
+// unknown `artifact:` scheme and is dropped by the URI allow-list below.
+const ARTIFACT_REF_RE = /^artifact:([0-9a-f]{64})$/;
+// Resolves artifact: references, and allows data: only on img@src with the
+// canonical raster MIME set (stripping it everywhere else). Both run in
+// uponSanitizeAttribute, before DOMPurify validates the value against
+// ALLOWED_URI_REGEXP — the rewritten artifact reference is a plain relative
+// path, so it passes that gate as an ordinary internal URL.
 DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+    const tag = node.tagName?.toLowerCase();
+    // Markdown images render to <img src>; an SVG <image href> is the same
+    // reference in embedded HTML, and the write-time gate treats the two alike.
+    if ((tag === 'img' && data.attrName === 'src') || (tag === 'image' && data.attrName === 'href')) {
+        const artifact = ARTIFACT_REF_RE.exec(data.attrValue);
+        if (artifact) {
+            data.attrValue = `${base}/api/v1/artifacts/${artifact[1]}`;
+            return;
+        }
+    }
     if (data.attrName === 'src' && node.tagName === 'IMG' && DATA_IMAGE_RE.test(data.attrValue)) {
         data.keepAttr = true;
         return;
@@ -796,8 +914,15 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
         data.keepAttr = false;
     }
 });
-export function renderNote(markdown) {
-    return DOMPurify.sanitize(md.render(markdown));
+export function renderNote(markdown, opts = {}) {
+    const env = { interactiveTasks: opts.interactiveTasks === true };
+    interactiveTasks = env.interactiveTasks;
+    try {
+        return DOMPurify.sanitize(md.render(markdown, env));
+    }
+    finally {
+        interactiveTasks = false;
+    }
 }
 // Run an already-rendered HTML fragment back through the same DOMPurify gate.
 // Used by the HTML export after it splices inlined artifact markup (base64 data:
