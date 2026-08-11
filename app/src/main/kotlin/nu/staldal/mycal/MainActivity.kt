@@ -70,6 +70,12 @@ class MainActivity : ComponentActivity() {
             if (allDay) Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
             else Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
 
+        // CalendarContract's all-day end is exclusive — the UTC midnight *after* the last day —
+        // whereas the form's end date is the last day itself.
+        fun endDateOf(millis: Long) =
+            if (allDay) Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().minusDays(1).toString()
+            else dateOf(millis)
+
         fun timeOf(millis: Long) =
             Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalTime().format(timeFormatter)
 
@@ -82,7 +88,7 @@ class MainActivity : ComponentActivity() {
             location = intent.getStringExtra(CalendarContract.Events.EVENT_LOCATION),
             startDate = beginTime?.let { dateOf(it) },
             startTime = if (allDay) null else beginTime?.let { timeOf(it) },
-            endDate = endTime?.let { dateOf(it) },
+            endDate = endTime?.let { endDateOf(it) },
             endTime = if (allDay) null else endTime?.let { timeOf(it) },
             allDay = allDay,
         )

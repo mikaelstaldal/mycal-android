@@ -311,6 +311,24 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Fills a blank form for a new event, optionally from an incoming intent's [prefill]. The four
+     * date/time fields are set in one go rather than through the four `update…` entry points: those
+     * carry the end along with the start, which on a form that is still half-filled would derive an
+     * end from fields that have not been set yet.
+     */
+    fun initializeNewEvent(prefill: NewEventPrefill? = null) {
+        val range = newEventRange(prefill, java.time.LocalDateTime.now())
+        _formState.update {
+            it.withRange(range).copy(
+                title = prefill?.title ?: it.title,
+                description = prefill?.description ?: it.description,
+                location = prefill?.location ?: it.location,
+                allDay = prefill?.allDay == true,
+            )
+        }
+    }
+
     fun updateTitle(value: String) { _formState.update { it.copy(title = value) } }
     fun updateDescription(value: String) { _formState.update { it.copy(description = value) } }
     fun updateUrl(value: String) { _formState.update { it.copy(url = value, urlError = false) } }
@@ -349,37 +367,23 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         _noteQuery.value = ""
         _noteSuggestions.value = emptyList()
     }
+    // The start/end coupling itself lives in EventTimeRange, so it can be reasoned about — and
+    // tested — without a form or a ViewModel around it.
     fun updateStartDate(value: String) {
-        _formState.update {
-            if (it.startDate.isNotEmpty() && it.endDate.isNotEmpty()) {
-                val oldStart = java.time.LocalDate.parse(it.startDate)
-                val oldEnd = java.time.LocalDate.parse(it.endDate)
-                val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(oldStart, oldEnd)
-                val newEnd = java.time.LocalDate.parse(value).plusDays(daysDiff)
-                it.copy(startDate = value, endDate = newEnd.toString())
-            } else {
-                it.copy(startDate = value)
-            }
-        }
+        _formState.update { it.withRange(it.range().withStartDate(value, it.allDay)) }
     }
     fun updateStartTime(value: String) {
-        _formState.update {
-            if (it.startDate.isNotEmpty() && it.startTime.isNotEmpty() &&
-                it.endDate.isNotEmpty() && it.endTime.isNotEmpty()) {
-                val oldStart = java.time.LocalDateTime.parse("${it.startDate}T${it.startTime}")
-                val oldEnd = java.time.LocalDateTime.parse("${it.endDate}T${it.endTime}")
-                val duration = java.time.Duration.between(oldStart, oldEnd)
-                val newEnd = java.time.LocalDateTime.parse("${it.startDate}T${value}").plus(duration)
-                val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-                it.copy(startTime = value, endDate = newEnd.toLocalDate().toString(), endTime = newEnd.toLocalTime().format(fmt))
-            } else {
-                it.copy(startTime = value)
-            }
-        }
+        _formState.update { it.withRange(it.range().withStartTime(value, it.allDay)) }
     }
-    fun updateEndDate(value: String) { _formState.update { it.copy(endDate = value) } }
-    fun updateEndTime(value: String) { _formState.update { it.copy(endTime = value) } }
-    fun updateAllDay(value: Boolean) { _formState.update { it.copy(allDay = value) } }
+    fun updateEndDate(value: String) {
+        _formState.update { it.withRange(it.range().withEndDate(value, it.allDay)) }
+    }
+    fun updateEndTime(value: String) {
+        _formState.update { it.withRange(it.range().withEndTime(value, it.allDay)) }
+    }
+    fun updateAllDay(value: Boolean) {
+        _formState.update { it.withRange(it.range().withAllDay(value)).copy(allDay = value) }
+    }
     fun updateColor(value: String) { _formState.update { it.copy(color = value) } }
     fun updateReminderMinutes(value: Int) { _formState.update { it.copy(reminderMinutes = value) } }
     fun updateRecurrenceFreq(value: String) {
@@ -514,6 +518,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
+
+    private fun EventFormState.range() = EventTimeRange(startDate, startTime, endDate, endTime)
+
+    private fun EventFormState.withRange(range: EventTimeRange) = copy(
+        startDate = range.startDate,
+        startTime = range.startTime,
+        endDate = range.endDate,
+        endTime = range.endTime,
+    )
 
     private fun buildTimestamps(form: EventFormState): Pair<String, String>? {
         if (form.title.isBlank() || form.startDate.isBlank() || form.endDate.isBlank()) {

@@ -101,22 +101,7 @@ fun EventFormScreen(
         if (eventId != null) {
             viewModel.loadEventForEdit(eventId)
         } else {
-            // Set default dates for new event
-            val today = LocalDate.now()
-            val now = LocalTime.now()
-            val startHour = now.plusHours(1).withMinute(0)
-            val endHour = startHour.plusHours(1)
-            val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-            viewModel.updateStartDate(prefill?.startDate ?: today.toString())
-            viewModel.updateEndDate(prefill?.endDate ?: prefill?.startDate ?: today.toString())
-            viewModel.updateStartTime(prefill?.startTime ?: startHour.format(timeFormatter))
-            viewModel.updateEndTime(prefill?.endTime ?: endHour.format(timeFormatter))
-            if (prefill?.allDay == true) {
-                viewModel.updateAllDay(true)
-            }
-            prefill?.title?.let { viewModel.updateTitle(it) }
-            prefill?.description?.let { viewModel.updateDescription(it) }
-            prefill?.location?.let { viewModel.updateLocation(it) }
+            viewModel.initializeNewEvent(prefill)
         }
     }
 
