@@ -21,11 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -215,7 +210,7 @@ fun EventDetailScreen(
 
                     if (event.description.isNotBlank()) {
                         Text("Description", style = MaterialTheme.typography.labelLarge)
-                        Text(htmlToAnnotatedString(event.description))
+                        EventDescriptionText(event.description)
                     }
 
                     // Stored as one comma-separated string; shown as a tag per entry, like the web
@@ -532,24 +527,4 @@ private fun formatRecurrenceInfo(event: EventDto): String {
     val days = if (event.recurrenceByDay != null) " on ${event.recurrenceByDay}" else ""
 
     return "$base$days$end"
-}
-
-private fun htmlToAnnotatedString(html: String): AnnotatedString {
-    val spanned = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT)
-    return buildAnnotatedString {
-        append(spanned.toString())
-        spanned.getSpans(0, spanned.length, Any::class.java).forEach { span ->
-            val start = spanned.getSpanStart(span)
-            val end = spanned.getSpanEnd(span)
-            when (span) {
-                is android.text.style.StyleSpan -> when (span.style) {
-                    android.graphics.Typeface.BOLD -> addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, end)
-                    android.graphics.Typeface.ITALIC -> addStyle(SpanStyle(fontStyle = FontStyle.Italic), start, end)
-                    android.graphics.Typeface.BOLD_ITALIC -> addStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic), start, end)
-                }
-                is android.text.style.UnderlineSpan -> addStyle(SpanStyle(textDecoration = TextDecoration.Underline), start, end)
-                is android.text.style.StrikethroughSpan -> addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), start, end)
-            }
-        }
-    }
 }

@@ -42,7 +42,7 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 - **data/api/** — Generated Retrofit interface (`DefaultApi`), generated request/response models, UI DTOs (`EventDto`, `CalendarDto`), HTTP client with Basic Auth interceptor (`RetrofitClient`)
 - **data/preferences/** — Preferences DataStore for server URL and credentials (`UserPreferences`)
 - **ui/calendar/** — Monthly calendar grid with event list (`CalendarScreen`, `CalendarViewModel`)
-- **ui/event/** — Event detail, create/edit form (`EventDetailScreen`, `EventFormScreen`, `EventViewModel`), and the start/end coupling that form relies on (`EventTimeRange`)
+- **ui/event/** — Event detail, create/edit form (`EventDetailScreen`, `EventFormScreen`, `EventViewModel`), the selectable/linkified description the detail screen shows (`EventDescriptionText`), and the start/end coupling that form relies on (`EventTimeRange`)
 - **ui/note/** — WebView host for the vendored MyNotes render kit (`NoteRendererWebView`)
 - **ui/settings/** — Server configuration screen (`SettingsScreen`, `SettingsViewModel`)
 - **ui/navigation/** — Compose Navigation graph (`NavGraph`)
