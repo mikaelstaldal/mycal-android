@@ -402,13 +402,17 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createEvent() {
         val form = _formState.value
+        if (form.isSaving || form.isSaved) return
 
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
+        // Guard on the caller's thread. Compose's enabled state is a composition behind, so two
+        // taps in one frame can both reach this method before the button is visibly disabled.
+        if (!_formState.compareAndSet(form, form.copy(isSaving = true, error = null))) return
+
         viewModelScope.launch {
-            _formState.update { it.copy(isSaving = true, error = null) }
-            val repo = getRepository()
             try {
+                val repo = getRepository()
                 val request = CreateEventRequest(
                     title = form.title,
                     startDate = if (form.allDay) startTimeStr else null,
@@ -451,13 +455,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateEvent(id: String) {
         val form = _formState.value
+        if (form.isSaving || form.isSaved) return
 
         val (startTimeStr, endTimeStr) = buildTimestamps(form) ?: return
 
+        if (!_formState.compareAndSet(form, form.copy(isSaving = true, error = null))) return
+
         viewModelScope.launch {
-            _formState.update { it.copy(isSaving = true, error = null) }
-            val repo = getRepository()
             try {
+                val repo = getRepository()
                 val request = UpdateEventRequest(
                     title = form.title,
                     startDate = if (form.allDay) startTimeStr else null,

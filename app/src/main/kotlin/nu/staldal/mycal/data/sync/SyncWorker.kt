@@ -63,7 +63,9 @@ class SyncWorker(
                 .build()
 
             WorkManager.getInstance(context)
-                .enqueueUniqueWork(ONE_TIME_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+                // Never cancel a running POST: the server may have committed it even though
+                // cancellation prevents the worker from retiring its pending CREATE locally.
+                .enqueueUniqueWork(ONE_TIME_WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
 
         fun enqueuePeriodic(context: Context) {

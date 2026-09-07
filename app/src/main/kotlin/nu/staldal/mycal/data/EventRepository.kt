@@ -9,6 +9,8 @@ import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.local.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 const val LOGTAG = "EventRepository"
 
@@ -144,7 +146,7 @@ class EventRepository(
         }
     }
 
-    suspend fun syncPendingChanges() {
+    suspend fun syncPendingChanges() = syncMutex.withLock {
         val api = apiProvider() ?: return
         val changes = pendingChangeDao.getAllChanges()
 
@@ -223,5 +225,11 @@ class EventRepository(
                 CalendarEntity(id = it.id.toInt(), name = it.name, color = it.color)
             })
         }
+    }
+
+    companion object {
+        // EventRepository instances are created independently by ViewModels and WorkManager.
+        // Serialize their syncs so two callers cannot POST the same pending CREATE concurrently.
+        private val syncMutex = Mutex()
     }
 }
