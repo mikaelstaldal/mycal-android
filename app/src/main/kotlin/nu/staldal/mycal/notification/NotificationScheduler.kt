@@ -67,6 +67,8 @@ object NotificationScheduler {
         )
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         alarmManager.cancel(pendingIntent)
+        // An alarm may already have fired and left a notification in the system tray.
+        context.getSystemService(NotificationManager::class.java).cancel(eventId.hashCode())
     }
 
     suspend fun rescheduleAllNotifications(context: Context, database: AppDatabase) {

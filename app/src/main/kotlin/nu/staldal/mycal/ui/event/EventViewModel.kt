@@ -493,8 +493,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     // Always sent: the empty string is how an existing note link is removed.
                     noteSlug = form.noteSlug,
                 )
+                val previous = repo.getEvent(id)
                 repo.updateEvent(id, request)
-                scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes)
+                val reminderChanged = previous == null || previous.allDay != form.allDay ||
+                    previous.reminderMinutes != form.reminderMinutes ||
+                    nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(previous.startTime) !=
+                    nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr)
+                scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes, reminderChanged)
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
@@ -504,8 +509,16 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun scheduleReminderIfNeeded(eventId: String, title: String, startTimeStr: String, reminderMinutes: Int) {
+    private fun scheduleReminderIfNeeded(
+        eventId: String,
+        title: String,
+        startTimeStr: String,
+        reminderMinutes: Int,
+        clearPrevious: Boolean = true,
+    ) {
         val context = getApplication<Application>()
+        // Retire the previous reminder even if the replacement is disabled or already in the past.
+        if (clearPrevious) NotificationScheduler.cancelNotification(context, eventId)
         if (reminderMinutes > 0) {
             val ldt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr) ?: return
             val triggerMillis = ldt.minusMinutes(reminderMinutes.toLong())
@@ -513,8 +526,6 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 .toInstant()
                 .toEpochMilli()
             NotificationScheduler.scheduleNotification(context, eventId, title, triggerMillis)
-        } else {
-            NotificationScheduler.cancelNotification(context, eventId)
         }
     }
 
