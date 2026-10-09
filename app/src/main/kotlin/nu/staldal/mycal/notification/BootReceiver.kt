@@ -10,7 +10,12 @@ import nu.staldal.mycal.data.local.AppDatabase
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action !in setOf(
+                Intent.ACTION_BOOT_COMPLETED,
+                Intent.ACTION_MY_PACKAGE_REPLACED,
+                Intent.ACTION_TIMEZONE_CHANGED,
+                Intent.ACTION_TIME_CHANGED,
+            )) return
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {

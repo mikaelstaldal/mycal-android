@@ -7,11 +7,17 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import nu.staldal.mycal.data.local.AppDatabase
-import nu.staldal.mycal.util.DateUtils
-import java.time.ZoneId
+import nu.staldal.mycal.data.local.EventEntity
 
 object NotificationScheduler {
+    private val reminderMutex = Mutex()
+
+    internal suspend fun <T> withReminderLock(block: suspend () -> T): T =
+        reminderMutex.withLock { block() }
+
     const val CHANNEL_ID = "mycal_event_reminders"
     private const val CHANNEL_NAME = "Event Reminders"
 
@@ -33,6 +39,7 @@ object NotificationScheduler {
         val intent = Intent(context, NotificationReceiver::class.java).apply {
             putExtra("event_id", eventId)
             putExtra("event_title", title)
+            putExtra("trigger_time", triggerTimeMillis)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -71,19 +78,27 @@ object NotificationScheduler {
         context.getSystemService(NotificationManager::class.java).cancel(eventId.hashCode())
     }
 
-    suspend fun rescheduleAllNotifications(context: Context, database: AppDatabase) {
-        val now = java.time.LocalDateTime.now()
-        val fromStr = DateUtils.toRfc3339(now)
-        val toStr = DateUtils.toRfc3339(now.plusYears(1))
-        val dao = database.eventDao()
-        val events = dao.getEventsWithReminders(fromStr, toStr)
-        for (event in events) {
-            val ldt = DateUtils.parseToLocalDateTime(event.startTime) ?: continue
-            val triggerMillis = ldt.minusMinutes(event.reminderMinutes.toLong())
-                .atZone(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli()
-            scheduleNotification(context, event.id, event.title, triggerMillis)
+    suspend fun reconcileEvents(context: Context, before: List<EventEntity>, database: AppDatabase) = withReminderLock {
+        // Read current state under the same lock local saves and receiver validation use.
+        val after = database.eventDao().getAllEvents()
+        val changes = reminderChanges(
+            before.associate { it.id to it.reminder() },
+            after.associate { it.id to it.reminder() },
+        )
+        for (id in changes.cancelIds) cancelNotification(context, id)
+        for ((id, reminder) in changes.schedule) {
+            scheduleNotification(context, id, reminder.title, reminder.triggerMillis)
+        }
+    }
+
+    suspend fun rescheduleAllNotifications(context: Context, database: AppDatabase) = withReminderLock {
+        for (event in database.eventDao().getAllEvents()) {
+            val reminder = event.reminder()
+            if (reminder == null) {
+                cancelNotification(context, event.id)
+            } else {
+                scheduleNotification(context, event.id, reminder.title, reminder.triggerMillis)
+            }
         }
     }
 

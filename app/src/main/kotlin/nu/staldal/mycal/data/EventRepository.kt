@@ -1,12 +1,16 @@
 package nu.staldal.mycal.data
 
+import android.content.Context
 import android.util.Log
+import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.CreateEventRequest
 import nu.staldal.mycal.data.api.DefaultApi
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.local.*
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -15,7 +19,8 @@ import kotlinx.coroutines.sync.withLock
 const val LOGTAG = "EventRepository"
 
 class EventRepository(
-    database: AppDatabase,
+    private val database: AppDatabase,
+    private val context: Context,
     private val apiProvider: () -> DefaultApi?,
 ) {
     private val eventDao = database.eventDao()
@@ -44,7 +49,11 @@ class EventRepository(
         return eventDao.getEventById(id)?.toDto()
     }
 
-    suspend fun refreshEvents(from: String, to: String) {
+    suspend fun refreshEvents(from: String, to: String) = syncMutex.withLock {
+        reconcileReminders { refreshEventsFromServer(from, to) }
+    }
+
+    private suspend fun refreshEventsFromServer(from: String, to: String) {
         val api = apiProvider() ?: return
         val response = api.apiV1EventsGet(from = from, to = to)
         if (response.isSuccessful) {
@@ -147,6 +156,22 @@ class EventRepository(
     }
 
     suspend fun syncPendingChanges() = syncMutex.withLock {
+        reconcileReminders { syncChangesToServer() }
+    }
+
+    private suspend fun reconcileReminders(block: suspend () -> Unit) {
+        val before = eventDao.getAllEvents()
+        try {
+            block()
+        } finally {
+            // A sync can apply some changes before a later request fails.
+            withContext(NonCancellable) {
+                NotificationScheduler.reconcileEvents(context, before, database)
+            }
+        }
+    }
+
+    private suspend fun syncChangesToServer() {
         val api = apiProvider() ?: return
         val changes = pendingChangeDao.getAllChanges()
 
@@ -229,7 +254,7 @@ class EventRepository(
 
     companion object {
         // EventRepository instances are created independently by ViewModels and WorkManager.
-        // Serialize their syncs so two callers cannot POST the same pending CREATE concurrently.
+        // Serialize syncs and refreshes so server changes and reminder snapshots stay ordered.
         private val syncMutex = Mutex()
     }
 }

@@ -4,16 +4,38 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import nu.staldal.mycal.data.local.AppDatabase
 import nu.staldal.mycal.MainActivity
 import nu.staldal.mycal.R
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val eventId = intent.getStringExtra("event_id") ?: return
-        val eventTitle = intent.getStringExtra("event_title") ?: "Event"
+        val trigger = intent.getLongExtra("trigger_time", Long.MIN_VALUE)
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                NotificationScheduler.withReminderLock {
+                    val event = AppDatabase.getInstance(context).eventDao().getEventById(eventId)
+                    val reminder = event?.reminder() ?: return@withReminderLock
+                    if (!reminder.acceptsAlarm(trigger, System.currentTimeMillis())) return@withReminderLock
+                    postNotification(context, eventId, reminder.title)
+                }
+            } catch (e: Exception) {
+                Log.w("NotificationReceiver", "Unable to validate reminder", e)
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
 
+    private fun postNotification(context: Context, eventId: String, eventTitle: String) {
         val tapIntent = Intent(context, MainActivity::class.java).apply {
             putExtra("event_id", eventId)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

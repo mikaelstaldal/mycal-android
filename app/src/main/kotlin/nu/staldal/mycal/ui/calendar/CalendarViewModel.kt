@@ -63,7 +63,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private var monthEventsJob: Job? = null
     private var scheduleEventsJob: Job? = null
 
-    private val repository = EventRepository(database) {
+    private val repository = EventRepository(database, application) {
         RetrofitClient.getApiService(serverConfig.baseUrl, serverConfig.username, serverConfig.password)
     }
 

@@ -169,7 +169,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val repository by lazy {
-        EventRepository(database) {
+        EventRepository(database, getApplication()) {
             val config = serverConfigDeferred.getCompleted()
             RetrofitClient.getApiService(config.baseUrl, config.username, config.password)
         }
@@ -253,8 +253,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             val repo = getRepository()
             _detailState.update { it.copy(isDeleting = true, error = null) }
             try {
-                repo.deleteEvent(id)
-                NotificationScheduler.cancelNotification(getApplication(), id)
+                NotificationScheduler.withReminderLock {
+                    repo.deleteEvent(id)
+                    NotificationScheduler.cancelNotification(getApplication(), id)
+                }
                 _detailState.update { it.copy(isDeleted = true, isDeleting = false) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
@@ -442,8 +444,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     recurrenceByMonth = form.recurrenceByMonth,
                     noteSlug = form.noteSlug.takeIf { it.isNotBlank() },
                 )
-                val eventId = repo.createEvent(request)
-                scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
+                NotificationScheduler.withReminderLock {
+                    val eventId = repo.createEvent(request)
+                    scheduleReminderIfNeeded(eventId, form.title, startTimeStr, form.reminderMinutes)
+                }
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
@@ -493,13 +497,15 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     // Always sent: the empty string is how an existing note link is removed.
                     noteSlug = form.noteSlug,
                 )
-                val previous = repo.getEvent(id)
-                repo.updateEvent(id, request)
-                val reminderChanged = previous == null || previous.allDay != form.allDay ||
-                    previous.reminderMinutes != form.reminderMinutes ||
-                    nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(previous.startTime) !=
-                    nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr)
-                scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes, reminderChanged)
+                NotificationScheduler.withReminderLock {
+                    val previous = repo.getEvent(id)
+                    repo.updateEvent(id, request)
+                    val reminderChanged = previous == null || previous.allDay != form.allDay ||
+                        previous.reminderMinutes != form.reminderMinutes ||
+                        nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(previous.startTime) !=
+                        nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(startTimeStr)
+                    scheduleReminderIfNeeded(id, form.title, startTimeStr, form.reminderMinutes, reminderChanged)
+                }
                 _formState.update { it.copy(isSaving = false, isSaved = true) }
                 ScheduleWidget.notifyDataChanged(getApplication())
                 SyncWorker.enqueueOneTime(getApplication())
