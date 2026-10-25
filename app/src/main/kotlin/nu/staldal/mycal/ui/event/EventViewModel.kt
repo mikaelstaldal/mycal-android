@@ -71,6 +71,8 @@ data class EventFormState(
     val categoriesError: Boolean = false,
     val isSaved: Boolean = false,
     val isLoading: Boolean = false,
+    /** Why the event to edit could not be loaded; the form is not shown then. */
+    val loadError: String? = null,
     // Recurrence fields
     val recurrenceFreq: String = "",
     val recurrenceInterval: Int = 1,
@@ -275,7 +277,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun loadEventForEdit(id: String) {
         viewModelScope.launch {
             val repo = getRepository()
-            _formState.update { it.copy(isLoading = true) }
+            _formState.update { it.copy(isLoading = true, loadError = null) }
             try {
                 val local = repo.getEvent(id)
                 // The bare id of a synced recurring series, reached through "All events" on one of
@@ -318,10 +320,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 } else {
-                    _formState.update { it.copy(isLoading = false, error = "Event not found") }
+                    _formState.update { it.copy(isLoading = false, loadError = "Event not found") }
                 }
             } catch (e: Exception) {
-                _formState.update { it.copy(isLoading = false, error = e.message) }
+                _formState.update { it.copy(isLoading = false, loadError = e.message ?: "Unable to load event") }
             }
         }
     }

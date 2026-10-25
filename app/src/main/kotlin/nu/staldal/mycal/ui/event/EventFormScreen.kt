@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.content.ActivityNotFoundException
@@ -141,7 +142,7 @@ fun EventFormScreen(
                             if (isEdit) viewModel.updateEvent(eventId!!)
                             else viewModel.createEvent()
                         },
-                        enabled = !state.isSaving && state.title.isNotBlank(),
+                        enabled = !state.isSaving && state.loadError == null && state.title.isNotBlank(),
                     ) {
                         Icon(Icons.Default.Check, contentDescription = "Save")
                     }
@@ -152,6 +153,12 @@ fun EventFormScreen(
         if (state.isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+        state.loadError?.let { error ->
+            Box(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
+                Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
             return@Scaffold
         }

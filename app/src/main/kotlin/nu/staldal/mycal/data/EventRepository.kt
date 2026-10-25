@@ -2,6 +2,7 @@ package nu.staldal.mycal.data
 
 import android.content.Context
 import android.util.Log
+import java.io.IOException
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.data.api.CalendarDto
 import nu.staldal.mycal.data.api.CreateEventRequest
@@ -63,7 +64,7 @@ class EventRepository(
      */
     suspend fun fetchSeries(id: String): EventDto? {
         val api = apiProvider() ?: throw Exception(SERIES_NEEDS_SERVER)
-        val response = api.apiV1EventsIdGet(id = id)
+        val response = seriesRequest { api.apiV1EventsIdGet(id = id) }
         return when {
             response.isSuccessful -> response.body()!!.toEntity().toDto()
             response.code() == 404 -> null
@@ -79,12 +80,13 @@ class EventRepository(
      * edit or resurrect an instance deletion that has not reached the server yet. The series'
      * cached rows are then dropped, with their reminders, and their range is fetched again; deleting
      * them outright rather than through [EventDao.deleteStaleEvents] also catches all-day rows,
-     * whose date-only times do not compare reliably with the RFC 3339 bounds of a refresh.
+     * whose date-only times do not compare reliably with the RFC 3339 bounds of a refresh. If that
+     * refresh fails, the save still stands and the old rows are put back.
      */
     suspend fun updateSeries(id: String, request: UpdateEventRequest) {
         val api = apiProvider() ?: throw Exception(SERIES_NEEDS_SERVER)
-        syncPendingChanges()
-        val response = api.apiV1EventsIdPatch(id = id, updateEventRequest = request)
+        seriesRequest { syncPendingChanges() }
+        val response = seriesRequest { api.apiV1EventsIdPatch(id = id, updateEventRequest = request) }
         if (!response.isSuccessful) {
             throw Exception("Unable to update event on backend: ${response.code()} ${response.message()}")
         }
@@ -96,8 +98,25 @@ class EventRepository(
         }
         val from = cached.mapNotNull { DateUtils.parseToLocalDateTime(it.startTime) }.minOrNull() ?: return
         val to = cached.mapNotNull { DateUtils.parseToLocalDateTime(it.endTime) }.maxOrNull() ?: return
-        refreshEvents(DateUtils.toRfc3339(from.minusDays(1)), DateUtils.toRfc3339(to.plusDays(1)))
+        try {
+            refreshEvents(DateUtils.toRfc3339(from.minusDays(1)), DateUtils.toRfc3339(to.plusDays(1)))
+        } catch (e: Exception) {
+            // The series is saved; only the refresh failed. Show the old instances until the next
+            // refresh rather than none.
+            Log.w(LOGTAG, "Refresh after saving series $id failed: $e")
+            eventDao.upsertEvents(cached)
+            NotificationScheduler.rescheduleAllNotifications(context, database)
+        }
     }
+
+    /** Runs a request [fetchSeries] or [updateSeries] cannot do without, reporting a network failure plainly. */
+    private suspend fun <T> seriesRequest(block: suspend () -> T): T =
+        try {
+            block()
+        } catch (e: IOException) {
+            Log.w(LOGTAG, "Series request failed: $e")
+            throw Exception(SERIES_NEEDS_SERVER, e)
+        }
 
     suspend fun refreshEvents(from: String, to: String) = syncMutex.withLock {
         reconcileReminders { refreshEventsFromServer(from, to) }
