@@ -5,6 +5,9 @@ ksp = "2.1.0-1.0.29"
 openApiGenerator = "7.10.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
+# Keep the instrumented SDK compatible with Robolectric and EventRepositoryTest's @Config SDK.
+robolectric = "4.14.1"
+robolectricSdk = "15-robolectric-12650502-i7"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 activityCompose = "1.10.0"
@@ -22,6 +25,8 @@ webkit = "1.12.1"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+robolectric-sdk = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricSdk" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

@@ -2,6 +2,7 @@ package nu.staldal.mycal.data
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import java.io.IOException
 import nu.staldal.mycal.notification.NotificationScheduler
 import nu.staldal.mycal.data.api.CalendarDto
@@ -127,18 +128,25 @@ class EventRepository(
         val response = api.apiV1EventsGet(from = from, to = to)
         if (response.isSuccessful) {
             val events = response.body() ?: emptyList()
-            val entities = events.map { it.toEntity() }
-            eventDao.upsertEvents(entities)
-            eventDao.deleteStaleEvents(
-                keepIds = entities.map { it.id },
-                from = from,
-                to = to,
-            )
-            // A series is shown through its instances only. A row under the bare series id, left
-            // by a create response or by an older server that reported the first instance under
-            // it, would duplicate one of them.
-            for (seriesId in entities.mapNotNull { it.parentId }.distinct()) {
-                eventDao.deleteEvent(seriesId)
+            database.withTransaction {
+                // A reconnect refresh may run before WorkManager pushes offline deletions.
+                val deletedIds = pendingChangeDao.getAllChanges()
+                    .filter { it.changeType == ChangeType.DELETE }
+                    .map { it.eventId }.toSet()
+                val entities = events.map { it.toEntity() }
+                    .filter { it.id !in deletedIds && it.parentId !in deletedIds }
+                eventDao.upsertEvents(entities)
+                eventDao.deleteStaleEvents(
+                    keepIds = entities.map { it.id },
+                    from = from,
+                    to = to,
+                )
+                // A series is shown through its instances only. A row under the bare series id, left
+                // by a create response or by an older server that reported the first instance under
+                // it, would duplicate one of them.
+                for (seriesId in entities.mapNotNull { it.parentId }.distinct()) {
+                    eventDao.deleteEvent(seriesId)
+                }
             }
         } else {
             throw Exception("Error: ${response.code()}")
@@ -223,7 +231,7 @@ class EventRepository(
      * series also removes its cached instances, since none of them is stored under the series id.
      * Returns the ids of the rows removed.
      */
-    suspend fun deleteEvent(id: String): List<String> {
+    suspend fun deleteEvent(id: String): List<String> = database.withTransaction {
         val removed = (listOf(id) + eventDao.getEventAndInstances(id).map { it.id }).distinct()
         eventDao.deleteEventAndInstances(id)
         if (id.startsWith("-")) {
@@ -234,7 +242,7 @@ class EventRepository(
             pendingChangeDao.deleteNonDeleteByEventId(id)
             pendingChangeDao.insert(PendingChange(eventId = id, changeType = ChangeType.DELETE))
         }
-        return removed
+        removed
     }
 
     suspend fun syncPendingChanges() = syncMutex.withLock {
@@ -301,7 +309,10 @@ class EventRepository(
                     ChangeType.DELETE -> {
                         val response = api.apiV1EventsIdDelete(id = change.eventId)
                         if (response.isSuccessful || response.code() == 404) {
-                            pendingChangeDao.delete(change)
+                            database.withTransaction {
+                                eventDao.deleteEventAndInstances(change.eventId)
+                                pendingChangeDao.delete(change)
+                            }
                         } else {
                             throw Exception("Unable to delete event on backend: ${response.code()} ${response.message()}")
                         }
