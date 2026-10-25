@@ -55,6 +55,13 @@ Native Android app (Kotlin, Jetpack Compose) that consumes the MyCal REST API wi
 - ViewModels use `AndroidViewModel` to access application context for DataStore
 - Dates/times use Material 3 DatePicker and TimePicker dialogs, storing values as `yyyy-MM-dd` and `HH:mm` strings
 - All API timestamps use RFC 3339 format, converted to local timezone for display
+- Recurring events are cached only as the server's expanded instances, each with a composite id
+  (`<series id>_<start>`) and the series id as `parentId` — the first instance included. The series
+  itself is never cached: editing "All events" fetches it from the server and saves it directly
+  (`EventRepository.fetchSeries` / `updateSeries`), so it needs a connection, and deleting it also
+  drops its cached instances. Deleting the first remaining instance of a DAILY/WEEKLY series makes
+  the server move the series start rather than add an EXDATE, which is why a cached copy of the
+  series must never be saved back.
 
 ## MyNotes integration
 

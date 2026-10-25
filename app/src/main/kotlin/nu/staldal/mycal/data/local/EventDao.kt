@@ -38,6 +38,14 @@ interface EventDao {
     @Query("DELETE FROM events WHERE id = :id")
     suspend fun deleteEvent(id: String)
 
+    /** The row [id] and, when it is a recurring series, every cached instance and override of it. */
+    @Query("SELECT * FROM events WHERE id = :id OR parentId = :id")
+    suspend fun getEventAndInstances(id: String): List<EventEntity>
+
+    /** Deletes the row [id] and, when it is a recurring series, every cached instance of it. */
+    @Query("DELETE FROM events WHERE id = :id OR parentId = :id")
+    suspend fun deleteEventAndInstances(id: String)
+
     @Query("DELETE FROM events WHERE id NOT IN (:keepIds) AND id NOT LIKE '-%' AND startTime >= :from AND startTime < :to")
     suspend fun deleteStaleEvents(keepIds: List<String>, from: String, to: String)
 

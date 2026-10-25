@@ -82,6 +82,11 @@ data class EventFormState(
     // Recurring instance info
     val parentId: String? = null,
     val isRecurringInstance: Boolean = false,
+    /**
+     * Loaded from the server rather than the local database — a recurring series, which is cached
+     * only as its instances — and so saved directly to the server.
+     */
+    val isServerCopy: Boolean = false,
     // MyNotes link
     val noteSlug: String = "",
     /** Whether the MyNotes app on this device can be read, and if not, why. */
@@ -254,8 +259,9 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             _detailState.update { it.copy(isDeleting = true, error = null) }
             try {
                 NotificationScheduler.withReminderLock {
-                    repo.deleteEvent(id)
-                    NotificationScheduler.cancelNotification(getApplication(), id)
+                    for (removedId in repo.deleteEvent(id)) {
+                        NotificationScheduler.cancelNotification(getApplication(), removedId)
+                    }
                 }
                 _detailState.update { it.copy(isDeleted = true, isDeleting = false) }
                 ScheduleWidget.notifyDataChanged(getApplication())
@@ -271,7 +277,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             val repo = getRepository()
             _formState.update { it.copy(isLoading = true) }
             try {
-                val event = repo.getEvent(id)
+                val local = repo.getEvent(id)
+                // The bare id of a synced recurring series, reached through "All events" on one of
+                // its instances. See EventRepository.fetchSeries for why its local row is not used.
+                // A series created here and not synced yet (negative id) is edited locally.
+                val isServerCopy = !id.startsWith("-") &&
+                    (local == null || (local.recurrenceFreq.isNotBlank() && local.parentId == null))
+                val event = if (isServerCopy) repo.fetchSeries(id) else local
                 if (event != null) {
                     val startLdt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(event.startTime)
                     val endLdt = nu.staldal.mycal.util.DateUtils.parseToLocalDateTime(event.endTime)
@@ -301,6 +313,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                             recurrenceByMonth = event.recurrenceByMonth,
                             parentId = event.parentId,
                             isRecurringInstance = event.parentId != null,
+                            isServerCopy = isServerCopy,
                             noteSlug = event.noteSlug,
                         )
                     }
@@ -497,7 +510,11 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     // Always sent: the empty string is how an existing note link is removed.
                     noteSlug = form.noteSlug,
                 )
-                NotificationScheduler.withReminderLock {
+                if (form.isServerCopy) {
+                    // The series' instances carry the reminders, and the refresh after the save
+                    // reconciles them.
+                    repo.updateSeries(id, request)
+                } else NotificationScheduler.withReminderLock {
                     val previous = repo.getEvent(id)
                     repo.updateEvent(id, request)
                     val reminderChanged = previous == null || previous.allDay != form.allDay ||

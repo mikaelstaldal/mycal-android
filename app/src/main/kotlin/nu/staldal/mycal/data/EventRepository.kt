@@ -9,6 +9,7 @@ import nu.staldal.mycal.data.api.DefaultApi
 import nu.staldal.mycal.data.api.EventDto
 import nu.staldal.mycal.data.api.UpdateEventRequest
 import nu.staldal.mycal.data.local.*
+import nu.staldal.mycal.util.DateUtils
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 const val LOGTAG = "EventRepository"
+
+private const val SERIES_NEEDS_SERVER = "Editing all events of a series needs a connection to the server"
 
 class EventRepository(
     private val database: AppDatabase,
@@ -49,6 +52,53 @@ class EventRepository(
         return eventDao.getEventById(id)?.toDto()
     }
 
+    /**
+     * Fetches the recurring series [id] itself, for editing all of its events. It comes from the
+     * server, never from the local database: that holds the series' expanded instances, each with
+     * the series id as `parentId` and a composite id of its own. A synced row under the bare
+     * series id is a copy of what an older server reported as the series' first instance, or of a
+     * create response. It is not used, since its start may be stale (the server moves the start
+     * when the first occurrence is deleted), and saving it back would restore occurrences deleted
+     * since.
+     */
+    suspend fun fetchSeries(id: String): EventDto? {
+        val api = apiProvider() ?: throw Exception(SERIES_NEEDS_SERVER)
+        val response = api.apiV1EventsIdGet(id = id)
+        return when {
+            response.isSuccessful -> response.body()!!.toEntity().toDto()
+            response.code() == 404 -> null
+            else -> throw Exception("Unable to fetch event: ${response.code()} ${response.message()}")
+        }
+    }
+
+    /**
+     * Saves the recurring series [id] fetched by [fetchSeries]. Unlike [updateEvent] this goes
+     * straight to the server, as there is no local row to queue the change against.
+     *
+     * Pending changes are pushed first, so that the refresh afterwards cannot overwrite an instance
+     * edit or resurrect an instance deletion that has not reached the server yet. The series'
+     * cached rows are then dropped, with their reminders, and their range is fetched again; deleting
+     * them outright rather than through [EventDao.deleteStaleEvents] also catches all-day rows,
+     * whose date-only times do not compare reliably with the RFC 3339 bounds of a refresh.
+     */
+    suspend fun updateSeries(id: String, request: UpdateEventRequest) {
+        val api = apiProvider() ?: throw Exception(SERIES_NEEDS_SERVER)
+        syncPendingChanges()
+        val response = api.apiV1EventsIdPatch(id = id, updateEventRequest = request)
+        if (!response.isSuccessful) {
+            throw Exception("Unable to update event on backend: ${response.code()} ${response.message()}")
+        }
+        val cached = eventDao.getEventAndInstances(id)
+        if (cached.isEmpty()) return
+        NotificationScheduler.withReminderLock {
+            eventDao.deleteEventAndInstances(id)
+            for (row in cached) NotificationScheduler.cancelNotification(context, row.id)
+        }
+        val from = cached.mapNotNull { DateUtils.parseToLocalDateTime(it.startTime) }.minOrNull() ?: return
+        val to = cached.mapNotNull { DateUtils.parseToLocalDateTime(it.endTime) }.maxOrNull() ?: return
+        refreshEvents(DateUtils.toRfc3339(from.minusDays(1)), DateUtils.toRfc3339(to.plusDays(1)))
+    }
+
     suspend fun refreshEvents(from: String, to: String) = syncMutex.withLock {
         reconcileReminders { refreshEventsFromServer(from, to) }
     }
@@ -65,6 +115,12 @@ class EventRepository(
                 from = from,
                 to = to,
             )
+            // A series is shown through its instances only. A row under the bare series id, left
+            // by a create response or by an older server that reported the first instance under
+            // it, would duplicate one of them.
+            for (seriesId in entities.mapNotNull { it.parentId }.distinct()) {
+                eventDao.deleteEvent(seriesId)
+            }
         } else {
             throw Exception("Error: ${response.code()}")
         }
@@ -143,8 +199,14 @@ class EventRepository(
         }
     }
 
-    suspend fun deleteEvent(id: String) {
-        eventDao.deleteEvent(id)
+    /**
+     * Deletes the event [id] locally and queues its deletion on the server. Deleting a recurring
+     * series also removes its cached instances, since none of them is stored under the series id.
+     * Returns the ids of the rows removed.
+     */
+    suspend fun deleteEvent(id: String): List<String> {
+        val removed = (listOf(id) + eventDao.getEventAndInstances(id).map { it.id }).distinct()
+        eventDao.deleteEventAndInstances(id)
         if (id.startsWith("-")) {
             // Never synced — just remove pending CREATE
             pendingChangeDao.deleteByEventId(id)
@@ -153,6 +215,7 @@ class EventRepository(
             pendingChangeDao.deleteNonDeleteByEventId(id)
             pendingChangeDao.insert(PendingChange(eventId = id, changeType = ChangeType.DELETE))
         }
+        return removed
     }
 
     suspend fun syncPendingChanges() = syncMutex.withLock {
