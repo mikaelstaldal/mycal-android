@@ -18,8 +18,8 @@ Native Android client for the [MyCal](https://github.com/mikaelstaldal/mycal) ca
 
 ## Requirements
 
-- Android SDK (API 35)
-- Gradle (system install, no wrapper)
+- Android SDK (API 36)
+- Gradle 9.8.2 (system install, no wrapper)
 - Min SDK: Android 8.0 (API 26)
 - A running MyCal server
 
